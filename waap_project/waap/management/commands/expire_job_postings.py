@@ -24,8 +24,10 @@ class Command(BaseCommand):
         now = timezone.now()
         
         # Find job postings that have expired
+        # Only anonymize approved or flagged postings, not those already marked as inappropriate or removed
         expired_postings = JobPosting.objects.filter(
-            expiration_date__lt=now
+            expiration_date__lt=now,
+            moderation_status__in=['APPROVED', 'FLAGGED']
         )
         
         # Count of processed postings

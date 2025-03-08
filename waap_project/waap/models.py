@@ -80,6 +80,14 @@ class JobPosting(models.Model):
         ('FRENCH_PREFERRED', 'French Preferred'),
     ]
     
+    # Moderation status choices
+    MODERATION_STATUS_CHOICES = [
+        ('APPROVED', 'Approved'),
+        ('FLAGGED', 'Flagged for Review'),
+        ('INAPPROPRIATE', 'Marked as Inappropriate'),
+        ('REMOVED', 'Removed'),
+    ]
+    
     job_title = models.CharField(max_length=200)
     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='job_postings')
     location = models.CharField(max_length=100)
@@ -95,6 +103,30 @@ class JobPosting(models.Model):
     # Fields for tracking the creator and deletion
     creator = models.ForeignKey(WaapUser, on_delete=models.SET_NULL, null=True, related_name='job_postings')
     deletion_token = models.CharField(max_length=100, unique=True, null=True, blank=True)
+    
+    # Moderation fields
+    moderation_status = models.CharField(
+        max_length=20, 
+        choices=MODERATION_STATUS_CHOICES,
+        default='APPROVED',
+        help_text="Current moderation status of the job posting"
+    )
+    moderation_notes = models.TextField(
+        blank=True, 
+        null=True,
+        help_text="Admin notes about moderation decisions"
+    )
+    moderation_date = models.DateTimeField(
+        blank=True, 
+        null=True,
+        help_text="When the last moderation action was taken"
+    )
+    moderation_by = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True,
+        help_text="Username of the admin who performed the last moderation action"
+    )
     
     def __str__(self):
         return f"{self.job_title} - {self.department}"

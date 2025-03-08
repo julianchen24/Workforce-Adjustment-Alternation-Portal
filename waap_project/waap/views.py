@@ -435,9 +435,10 @@ class PublicJobPostingView(View):
     
     def render_public_page(self, request):
         """Render the public job posting page with initial data."""
-        # Get active job postings
+        # Get active job postings that are approved (not flagged, inappropriate, or removed)
         job_postings = JobPosting.objects.filter(
-            expiration_date__gte=timezone.now()
+            expiration_date__gte=timezone.now(),
+            moderation_status='APPROVED'
         ).order_by('-posting_date')
         
         # Get filter options
@@ -467,9 +468,10 @@ class PublicJobPostingView(View):
         date_posted = request.GET.get('date_posted')
         view_mode = request.GET.get('view_mode', 'card')
         
-        # Start with all active job postings
+        # Start with all active job postings that are approved
         queryset = JobPosting.objects.filter(
-            expiration_date__gte=timezone.now()
+            expiration_date__gte=timezone.now(),
+            moderation_status='APPROVED'
         )
         
         # Apply filters
@@ -575,11 +577,18 @@ def contact_form(request, pk):
     # Get the job posting
     job_posting = get_object_or_404(JobPosting, pk=pk)
     
-    # Check if the job posting is active
+    # Check if the job posting is active and approved
     if not job_posting.is_active:
         return render(request, 'waap/contact_form.html', {
             'job_posting': job_posting,
             'error_message': 'This job posting has expired and is no longer accepting contact messages.',
+        })
+    
+    # Check if the job posting is approved
+    if job_posting.moderation_status != 'APPROVED':
+        return render(request, 'waap/contact_form.html', {
+            'job_posting': job_posting,
+            'error_message': 'This job posting is currently under review and not accepting contact messages.',
         })
     
     if request.method == 'POST':
