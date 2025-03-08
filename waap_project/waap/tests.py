@@ -8,6 +8,8 @@ from django.core.exceptions import ValidationError
 import unittest
 from datetime import timedelta
 from unittest.mock import patch, MagicMock
+from io import StringIO
+from django.core.management import call_command
 from .models import Department, JobPosting, WaapUser, OneTimeToken, ContactMessage
 from .forms import ContactForm
 
@@ -1089,3 +1091,117 @@ class JobPostingDeletionTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'waap/job_posting_delete_confirm.html')
         self.assertIn('error_message', response.context)
+
+
+class ExpireJobPostingsCommandTest(TestCase):
+    """Test the expire_job_postings management command."""
+    
+    def setUp(self):
+        """Set up test data."""
+        # Create a department
+        self.department = Department.objects.create(name="Information Technology")
+        
+        # Create a user
+        self.user = WaapUser.objects.create(
+            first_name="Test",
+            last_name="User",
+            email="test.user@government.ca",
+            department="Information Technology"
+        )
+        
+        # Create an active job posting
+        self.active_job = JobPosting.objects.create(
+            job_title="Active Position",
+            department=self.department,
+            location="Ottawa, ON",
+            classification="PERMANENT",
+            language_profile="BILINGUAL",
+            contact_email="active@example.ca",
+            creator=self.user,
+            expiration_date=timezone.now() + timedelta(days=15)
+        )
+        
+        # Create an expired job posting with contact email
+        self.expired_job = JobPosting.objects.create(
+            job_title="Expired Position",
+            department=self.department,
+            location="Toronto, ON",
+            classification="CONTRACT",
+            language_profile="ENGLISH",
+            contact_email="expired@example.ca",
+            creator=self.user,
+            expiration_date=timezone.now() - timedelta(days=5)
+        )
+        
+        # Create an already anonymized expired job posting
+        self.anonymized_job = JobPosting.objects.create(
+            job_title="Already Anonymized",
+            department=self.department,
+            location="Montreal, QC",
+            classification="TEMPORARY",
+            language_profile="FRENCH",
+            contact_email=None,  # Already anonymized
+            creator=self.user,
+            expiration_date=timezone.now() - timedelta(days=10)
+        )
+    
+    def test_command_identifies_expired_postings(self):
+        """Test that the command correctly identifies expired job postings."""
+        # Capture command output
+        out = StringIO()
+        call_command('expire_job_postings', '--dry-run', stdout=out)
+        output = out.getvalue()
+        
+        # Check that the command found the correct number of expired postings
+        self.assertIn("Found 2 expired job postings", output)
+        
+        # Check that the command identified the expired job posting
+        self.assertIn(f"Anonymizing job posting: {self.expired_job.job_title}", output)
+        
+        # Check that the command identified the already anonymized job posting
+        self.assertIn(f"Job posting already anonymized: {self.anonymized_job.job_title}", output)
+        
+        # Check that the active job posting was not included
+        self.assertNotIn(f"Anonymizing job posting: {self.active_job.job_title}", output)
+    
+    def test_command_anonymizes_data(self):
+        """Test that the command correctly anonymizes job posting data."""
+        # Run the command
+        call_command('expire_job_postings')
+        
+        # Refresh the job postings from the database
+        self.active_job.refresh_from_db()
+        self.expired_job.refresh_from_db()
+        self.anonymized_job.refresh_from_db()
+        
+        # Check that the active job posting was not anonymized
+        self.assertEqual(self.active_job.contact_email, "active@example.ca")
+        
+        # Check that the expired job posting was anonymized
+        self.assertIsNone(self.expired_job.contact_email)
+        
+        # Check that the already anonymized job posting remains anonymized
+        self.assertIsNone(self.anonymized_job.contact_email)
+    
+    def test_command_dry_run_mode(self):
+        """Test that the dry-run mode doesn't make any changes."""
+        # Store the original contact email
+        original_email = self.expired_job.contact_email
+        
+        # Run the command in dry-run mode
+        out = StringIO()
+        call_command('expire_job_postings', '--dry-run', stdout=out)
+        output = out.getvalue()
+        
+        # Verify the command output indicates it's a dry run
+        self.assertIn("DRY RUN: Would have anonymized", output)
+        
+        # Refresh the job postings from the database
+        self.active_job.refresh_from_db()
+        self.expired_job.refresh_from_db()
+        self.anonymized_job.refresh_from_db()
+        
+        # Check that no job postings were anonymized
+        self.assertEqual(self.active_job.contact_email, "active@example.ca")
+        self.assertEqual(self.expired_job.contact_email, original_email)
+        self.assertIsNone(self.anonymized_job.contact_email)
