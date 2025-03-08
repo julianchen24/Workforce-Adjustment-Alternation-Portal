@@ -18,4 +18,7 @@ urlpatterns = [
     path('job-postings/<int:pk>/', views.job_posting_detail, name='job_posting_detail'),
     path('job-postings/<int:pk>/delete-request/', views.job_posting_delete_request, name='job_posting_delete_request'),
     path('job-postings/delete/<str:token>/', views.job_posting_delete_confirm, name='job_posting_delete_confirm'),
+    
+    # Public Job Posting URLs
+    path('browse/', views.PublicJobPostingView.as_view(), name='public_job_postings'),
 ]

@@ -327,9 +327,9 @@ class OneTimeLoginViewsTest(TestCase):
         logout_url = reverse('waap:logout')
         response = self.client.get(logout_url)
         
-        # Check that the response is a redirect to the job posting list
+        # Check that the response is a redirect to the public job postings page
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse('waap:job_posting_list'), response.url)
+        self.assertIn(reverse('waap:public_job_postings'), response.url)
         
         # Check that the user is no longer authenticated
         self.assertNotIn('waap_authenticated_user_id', self.client.session)
@@ -364,7 +364,8 @@ class LoginRequiredTest(TestCase):
         
         # Now the user should be authenticated
         response = self.client.get(reverse('waap:index'))
-        self.assertEqual(response.status_code, 302)  # Redirect to job_posting_list
+        self.assertEqual(response.status_code, 302)  # Redirect to public_job_postings
+        self.assertIn(reverse('waap:public_job_postings'), response.url)
         
         # Clear the session to simulate a logged-out user
         session = self.client.session
@@ -482,6 +483,271 @@ class JobPostingCreationTest(TestCase):
         self.assertTemplateUsed(response, 'waap/job_posting_detail.html')
         self.assertEqual(response.context['job_posting'], job_posting)
         self.assertTrue(response.context['is_owner'])
+
+
+class PublicJobPostingViewTest(TestCase):
+    """Test the public job posting view."""
+    
+    def setUp(self):
+        """Set up test data."""
+        self.client = Client()
+        
+        # Create departments
+        self.dept1 = Department.objects.create(name="Information Technology")
+        self.dept2 = Department.objects.create(name="Human Resources")
+        
+        # Create job postings with different attributes for filtering tests
+        # Job posting 1: IT, Ottawa, Permanent, Bilingual
+        self.job1 = JobPosting.objects.create(
+            job_title="Software Developer",
+            department=self.dept1,
+            location="Ottawa, ON",
+            classification="PERMANENT",
+            language_profile="BILINGUAL",
+            alternation_criteria={"type": "seeking", "skills": ["Python", "Django"]},
+            expiration_date=timezone.now() + timedelta(days=30)
+        )
+        
+        # Job posting 2: IT, Toronto, Contract, English
+        self.job2 = JobPosting.objects.create(
+            job_title="Data Analyst",
+            department=self.dept1,
+            location="Toronto, ON",
+            classification="CONTRACT",
+            language_profile="ENGLISH",
+            alternation_criteria={"type": "offering", "skills": ["SQL", "Python"]},
+            expiration_date=timezone.now() + timedelta(days=30)
+        )
+        
+        # Job posting 3: HR, Ottawa, Temporary, French
+        self.job3 = JobPosting.objects.create(
+            job_title="HR Specialist",
+            department=self.dept2,
+            location="Ottawa, ON",
+            classification="TEMPORARY",
+            language_profile="FRENCH",
+            alternation_criteria={"type": "seeking", "skills": ["Recruitment", "Onboarding"]},
+            expiration_date=timezone.now() + timedelta(days=30)
+        )
+        
+        # Create an expired job posting (should not appear in results)
+        self.expired_job = JobPosting.objects.create(
+            job_title="Expired Position",
+            department=self.dept1,
+            location="Montreal, QC",
+            classification="CASUAL",
+            language_profile="ENGLISH_PREFERRED",
+            expiration_date=timezone.now() - timedelta(days=1)
+        )
+        
+        # URL for the public job posting view
+        self.public_url = reverse('waap:public_job_postings')
+    
+    def test_public_view_loads(self):
+        """Test that the public job posting view loads correctly."""
+        response = self.client.get(self.public_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'waap/public_job_postings.html')
+        
+        # Check that only active job postings are included
+        self.assertEqual(len(response.context['job_postings']), 3)
+        self.assertNotIn(self.expired_job, response.context['job_postings'])
+        
+        # Check that filter options are included
+        self.assertIn('departments', response.context)
+        self.assertIn('locations', response.context)
+        self.assertIn('classification_choices', response.context)
+        self.assertIn('language_profile_choices', response.context)
+        self.assertEqual(response.context['view_mode'], 'card')
+    
+    def test_ajax_filter_department(self):
+        """Test filtering by department."""
+        response = self.client.get(
+            self.public_url,
+            {'department': self.dept1.id},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        
+        # Parse the JSON response
+        data = response.json()
+        self.assertEqual(data['count'], 2)  # Should include job1 and job2
+        self.assertIn('html', data)
+        
+        # Check that the HTML contains the expected job titles
+        self.assertIn('Software Developer', data['html'])
+        self.assertIn('Data Analyst', data['html'])
+        self.assertNotIn('HR Specialist', data['html'])
+    
+    def test_ajax_filter_location(self):
+        """Test filtering by location."""
+        response = self.client.get(
+            self.public_url,
+            {'location': 'Ottawa, ON'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        
+        # Parse the JSON response
+        data = response.json()
+        self.assertEqual(data['count'], 2)  # Should include job1 and job3
+        
+        # Check that the HTML contains the expected job titles
+        self.assertIn('Software Developer', data['html'])
+        self.assertNotIn('Data Analyst', data['html'])
+        self.assertIn('HR Specialist', data['html'])
+    
+    def test_ajax_filter_classification(self):
+        """Test filtering by classification."""
+        response = self.client.get(
+            self.public_url,
+            {'classification': 'PERMANENT'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        
+        # Parse the JSON response
+        data = response.json()
+        self.assertEqual(data['count'], 1)  # Should include only job1
+        
+        # Check that the HTML contains the expected job title
+        self.assertIn('Software Developer', data['html'])
+        self.assertNotIn('Data Analyst', data['html'])
+        self.assertNotIn('HR Specialist', data['html'])
+    
+    def test_ajax_filter_language_profile(self):
+        """Test filtering by language profile."""
+        response = self.client.get(
+            self.public_url,
+            {'language_profile': 'BILINGUAL'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        
+        # Parse the JSON response
+        data = response.json()
+        self.assertEqual(data['count'], 1)  # Should include only job1
+        
+        # Check that the HTML contains the expected job title
+        self.assertIn('Software Developer', data['html'])
+        self.assertNotIn('Data Analyst', data['html'])
+        self.assertNotIn('HR Specialist', data['html'])
+    
+    def test_ajax_filter_alternation_type(self):
+        """Test filtering by alternation type."""
+        response = self.client.get(
+            self.public_url,
+            {'alternation_type': 'seeking'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        
+        # Parse the JSON response
+        data = response.json()
+        self.assertEqual(data['count'], 2)  # Should include job1 and job3
+        
+        # Check that the HTML contains the expected job titles
+        self.assertIn('Software Developer', data['html'])
+        self.assertNotIn('Data Analyst', data['html'])
+        self.assertIn('HR Specialist', data['html'])
+    
+    def test_ajax_filter_date_posted(self):
+        """Test filtering by date posted."""
+        # Create a job posting from 10 days ago
+        old_job = JobPosting.objects.create(
+            job_title="Old Position",
+            department=self.dept1,
+            location="Vancouver, BC",
+            classification="PERMANENT",
+            language_profile="ENGLISH",
+            expiration_date=timezone.now() + timedelta(days=20)
+        )
+        
+        # Manually set the posting_date to 10 days ago
+        old_job.posting_date = timezone.now() - timedelta(days=10)
+        old_job.save()
+        
+        # Test filtering for last 7 days
+        response = self.client.get(
+            self.public_url,
+            {'date_posted': '7days'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        
+        # Parse the JSON response
+        data = response.json()
+        self.assertEqual(data['count'], 3)  # Should include job1, job2, and job3, but not old_job
+        
+        # Check that the HTML contains the expected job titles
+        self.assertIn('Software Developer', data['html'])
+        self.assertIn('Data Analyst', data['html'])
+        self.assertIn('HR Specialist', data['html'])
+        self.assertNotIn('Old Position', data['html'])
+    
+    def test_ajax_filter_multiple_criteria(self):
+        """Test filtering by multiple criteria."""
+        response = self.client.get(
+            self.public_url,
+            {
+                'department': self.dept1.id,
+                'classification': 'PERMANENT',
+                'language_profile': 'BILINGUAL'
+            },
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        
+        # Parse the JSON response
+        data = response.json()
+        self.assertEqual(data['count'], 1)  # Should include only job1
+        
+        # Check that the HTML contains the expected job title
+        self.assertIn('Software Developer', data['html'])
+        self.assertNotIn('Data Analyst', data['html'])
+        self.assertNotIn('HR Specialist', data['html'])
+    
+    def test_ajax_view_mode_table(self):
+        """Test switching to table view mode."""
+        response = self.client.get(
+            self.public_url,
+            {'view_mode': 'table'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        
+        # Parse the JSON response
+        data = response.json()
+        
+        # Check that the HTML contains table elements
+        self.assertIn('<table class="job-postings-table">', data['html'])
+        self.assertIn('<thead>', data['html'])
+        self.assertIn('<tbody>', data['html'])
+        
+        # Check that all job titles are included
+        self.assertIn('Software Developer', data['html'])
+        self.assertIn('Data Analyst', data['html'])
+        self.assertIn('HR Specialist', data['html'])
+    
+    def test_ajax_no_results(self):
+        """Test when no job postings match the filter criteria."""
+        response = self.client.get(
+            self.public_url,
+            {
+                'department': self.dept1.id,
+                'location': 'Ottawa, ON',
+                'classification': 'CASUAL'  # No job postings match this combination
+            },
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        
+        # Parse the JSON response
+        data = response.json()
+        self.assertEqual(data['count'], 0)
+        
+        # Check that the HTML contains the no results message
+        self.assertIn('No job postings match your filter criteria', data['html'])
 
 
 class JobPostingDeletionTest(TestCase):

@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import HttpResponse
-from django.views.generic import ListView
+from django.http import HttpResponse, JsonResponse
+from django.views.generic import ListView, View
 from django.urls import reverse
 from django.utils import timezone
 from django.contrib import messages
@@ -9,16 +9,17 @@ from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.conf import settings
 from django.views.decorators.http import require_http_methods
+from django.db.models import Q
 
 from .models import WaapUser, OneTimeToken, Department, JobPosting
 import re
 import json
 import secrets
-from datetime import datetime
+from datetime import datetime, timedelta
 
 def index(request):
     """Home page view for the WAAP application."""
-    return redirect('waap:job_posting_list')
+    return redirect('waap:public_job_postings')
 
 # Session key for authentication
 AUTH_SESSION_KEY = 'waap_authenticated_user_id'
@@ -168,7 +169,7 @@ def logout(request):
     if AUTH_SESSION_KEY in request.session:
         del request.session[AUTH_SESSION_KEY]
     
-    return redirect('waap:job_posting_list')
+    return redirect('waap:public_job_postings')
 
 
 @login_required
@@ -417,3 +418,102 @@ class JobPostingListView(ListView):
     def get_queryset(self):
         """Return only active job postings."""
         return JobPosting.objects.filter(expiration_date__gte=timezone.now()).order_by('-posting_date')
+
+
+class PublicJobPostingView(View):
+    """Public view for browsing and filtering job postings."""
+    
+    def get(self, request):
+        """Handle GET requests for the public job posting view."""
+        # Check if this is an AJAX request for filtering
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return self.handle_ajax_filter(request)
+        
+        # Regular page load
+        return self.render_public_page(request)
+    
+    def render_public_page(self, request):
+        """Render the public job posting page with initial data."""
+        # Get active job postings
+        job_postings = JobPosting.objects.filter(
+            expiration_date__gte=timezone.now()
+        ).order_by('-posting_date')
+        
+        # Get filter options
+        departments = Department.objects.all().order_by('name')
+        locations = JobPosting.objects.filter(
+            expiration_date__gte=timezone.now()
+        ).values_list('location', flat=True).distinct().order_by('location')
+        
+        # Render the template
+        return render(request, 'waap/public_job_postings.html', {
+            'job_postings': job_postings,
+            'departments': departments,
+            'locations': locations,
+            'classification_choices': JobPosting.CLASSIFICATION_CHOICES,
+            'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
+            'view_mode': 'card',  # Default view mode
+        })
+    
+    def handle_ajax_filter(self, request):
+        """Handle AJAX requests for filtering job postings."""
+        # Get filter parameters
+        department_id = request.GET.get('department')
+        location = request.GET.get('location')
+        classification = request.GET.get('classification')
+        language_profile = request.GET.get('language_profile')
+        alternation_type = request.GET.get('alternation_type')
+        date_posted = request.GET.get('date_posted')
+        view_mode = request.GET.get('view_mode', 'card')
+        
+        # Start with all active job postings
+        queryset = JobPosting.objects.filter(
+            expiration_date__gte=timezone.now()
+        )
+        
+        # Apply filters
+        if department_id:
+            queryset = queryset.filter(department_id=department_id)
+        
+        if location:
+            queryset = queryset.filter(location=location)
+        
+        if classification:
+            queryset = queryset.filter(classification=classification)
+        
+        if language_profile:
+            queryset = queryset.filter(language_profile=language_profile)
+        
+        # Filter by alternation type (seeking/offering)
+        if alternation_type:
+            # This assumes alternation_criteria has a 'type' field
+            # Adjust as needed based on your actual data structure
+            queryset = queryset.filter(alternation_criteria__type=alternation_type)
+        
+        # Filter by date posted
+        if date_posted:
+            if date_posted == '7days':
+                date_threshold = timezone.now() - timedelta(days=7)
+                queryset = queryset.filter(posting_date__gte=date_threshold)
+            elif date_posted == '30days':
+                date_threshold = timezone.now() - timedelta(days=30)
+                queryset = queryset.filter(posting_date__gte=date_threshold)
+        
+        # Order by posting date (newest first)
+        job_postings = queryset.order_by('-posting_date')
+        
+        # Render the appropriate template fragment based on view mode
+        if view_mode == 'table':
+            html = render_to_string('waap/partials/job_postings_table.html', {
+                'job_postings': job_postings,
+            }, request=request)
+        else:  # card view
+            html = render_to_string('waap/partials/job_postings_cards.html', {
+                'job_postings': job_postings,
+            }, request=request)
+        
+        # Return JSON response with the rendered HTML
+        return JsonResponse({
+            'html': html,
+            'count': job_postings.count(),
+        })

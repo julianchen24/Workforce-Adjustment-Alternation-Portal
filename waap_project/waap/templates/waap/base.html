@@ -15,6 +15,7 @@
     <nav>
         <ul>
             <li><a href="{% url 'waap:index' %}">Home</a></li>
+            <li><a href="{% url 'waap:public_job_postings' %}">Browse Job Postings</a></li>
             <li><a href="{% url 'waap:user_list' %}">Users</a></li>
             <li><a href="{% url 'admin:index' %}">Admin</a></li>
             {% if request.session.waap_authenticated_user_id %}

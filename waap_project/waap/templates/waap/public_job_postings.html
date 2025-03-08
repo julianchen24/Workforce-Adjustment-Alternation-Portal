@@ -1,0 +1,441 @@
+{% extends 'waap/base.html' %}
+
+{% block title %}Browse Job Postings - WAAP{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Styles for the public job postings page */
+    .filter-container {
+        background-color: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 5px;
+        margin-bottom: 2rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .filter-group {
+        flex: 1;
+        min-width: 200px;
+    }
+    
+    .filter-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: bold;
+    }
+    
+    .filter-group select,
+    .filter-group input {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+    
+    .filter-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 1rem;
+    }
+    
+    .view-toggle {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .view-toggle button {
+        padding: 0.5rem 1rem;
+        background-color: #f8f9fa;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    .view-toggle button.active {
+        background-color: #0056b3;
+        color: white;
+        border-color: #0056b3;
+    }
+    
+    .job-postings-container {
+        margin-top: 2rem;
+    }
+    
+    /* Card view styles */
+    .job-postings-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .job-card {
+        background-color: white;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        padding: 1.5rem;
+        transition: transform 0.2s;
+    }
+    
+    .job-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .job-card h3 {
+        margin-top: 0;
+        color: #0056b3;
+        font-size: 1.2rem;
+    }
+    
+    .job-card-meta {
+        margin: 1rem 0;
+    }
+    
+    .job-card-meta p {
+        margin: 0.5rem 0;
+        font-size: 0.9rem;
+    }
+    
+    .job-card-actions {
+        margin-top: 1.5rem;
+        text-align: center;
+    }
+    
+    /* Table view styles */
+    .job-postings-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .job-postings-table th {
+        background-color: #f2f2f2;
+        padding: 0.75rem;
+        text-align: left;
+        cursor: pointer;
+    }
+    
+    .job-postings-table th:hover {
+        background-color: #e9e9e9;
+    }
+    
+    .job-postings-table td {
+        padding: 0.75rem;
+        border-bottom: 1px solid #ddd;
+    }
+    
+    .job-postings-table tr:hover {
+        background-color: #f5f5f5;
+    }
+    
+    .sort-icon {
+        display: inline-block;
+        width: 0;
+        height: 0;
+        margin-left: 0.5rem;
+        vertical-align: middle;
+    }
+    
+    .sort-icon.asc {
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-bottom: 5px solid currentColor;
+    }
+    
+    .sort-icon.desc {
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-top: 5px solid currentColor;
+    }
+    
+    .results-count {
+        margin-bottom: 1rem;
+        font-weight: bold;
+    }
+    
+    .no-results {
+        text-align: center;
+        padding: 2rem;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+    }
+    
+    @media (max-width: 768px) {
+        .filter-row {
+            flex-direction: column;
+        }
+        
+        .filter-group {
+            width: 100%;
+        }
+        
+        .job-postings-cards {
+            grid-template-columns: 1fr;
+        }
+        
+        .job-postings-table {
+            font-size: 0.9rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-container">
+    <h2>Browse Job Postings</h2>
+    
+    <div class="filter-container">
+        <h3>Filter Options</h3>
+        <form id="filter-form">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="department">Department/Agency</label>
+                    <select id="department" name="department">
+                        <option value="">All Departments</option>
+                        {% for department in departments %}
+                            <option value="{{ department.id }}">{{ department.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="location">Location</label>
+                    <select id="location" name="location">
+                        <option value="">All Locations</option>
+                        {% for location in locations %}
+                            <option value="{{ location }}">{{ location }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="classification">Classification/Level</label>
+                    <select id="classification" name="classification">
+                        <option value="">All Classifications</option>
+                        {% for value, display in classification_choices %}
+                            <option value="{{ value }}">{{ display }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="alternation_type">Alternation Type</label>
+                    <select id="alternation_type" name="alternation_type">
+                        <option value="">All Types</option>
+                        <option value="seeking">Seeking</option>
+                        <option value="offering">Offering</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="language_profile">Language Profile</label>
+                    <select id="language_profile" name="language_profile">
+                        <option value="">All Profiles</option>
+                        {% for value, display in language_profile_choices %}
+                            <option value="{{ value }}">{{ display }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="date_posted">Date Posted</label>
+                    <select id="date_posted" name="date_posted">
+                        <option value="">Any Time</option>
+                        <option value="7days">Last 7 Days</option>
+                        <option value="30days">Last 30 Days</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="filter-actions">
+                <button type="button" id="reset-filters" class="btn btn-secondary">Reset Filters</button>
+                
+                <div class="view-toggle">
+                    <button type="button" id="card-view-btn" class="{% if view_mode == 'card' %}active{% endif %}">Card View</button>
+                    <button type="button" id="table-view-btn" class="{% if view_mode == 'table' %}active{% endif %}">Table View</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <div class="results-count">
+        <span id="results-count">{{ job_postings.count }}</span> job postings found
+    </div>
+    
+    <div class="job-postings-container">
+        <div id="job-postings-content">
+            {% if view_mode == 'table' %}
+                {% include 'waap/partials/job_postings_table.html' %}
+            {% else %}
+                {% include 'waap/partials/job_postings_cards.html' %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Elements
+        const filterForm = document.getElementById('filter-form');
+        const resetFiltersBtn = document.getElementById('reset-filters');
+        const cardViewBtn = document.getElementById('card-view-btn');
+        const tableViewBtn = document.getElementById('table-view-btn');
+        const jobPostingsContent = document.getElementById('job-postings-content');
+        const resultsCount = document.getElementById('results-count');
+        
+        // Current view mode
+        let currentViewMode = '{{ view_mode }}';
+        
+        // Filter inputs
+        const filterInputs = filterForm.querySelectorAll('select');
+        
+        // Function to apply filters
+        function applyFilters() {
+            // Build query string
+            const params = new URLSearchParams();
+            
+            filterInputs.forEach(input => {
+                if (input.value) {
+                    params.append(input.name, input.value);
+                }
+            });
+            
+            // Add view mode
+            params.append('view_mode', currentViewMode);
+            
+            // Make AJAX request
+            fetch(`?${params.toString()}`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Update content
+                jobPostingsContent.innerHTML = data.html;
+                resultsCount.textContent = data.count;
+                
+                // Re-attach event listeners for sorting if in table view
+                if (currentViewMode === 'table') {
+                    attachSortListeners();
+                }
+            })
+            .catch(error => {
+                console.error('Error applying filters:', error);
+            });
+        }
+        
+        // Function to reset filters
+        function resetFilters() {
+            filterInputs.forEach(input => {
+                input.value = '';
+            });
+            
+            applyFilters();
+        }
+        
+        // Function to switch view mode
+        function switchViewMode(mode) {
+            currentViewMode = mode;
+            
+            // Update active button
+            if (mode === 'card') {
+                cardViewBtn.classList.add('active');
+                tableViewBtn.classList.remove('active');
+            } else {
+                tableViewBtn.classList.add('active');
+                cardViewBtn.classList.remove('active');
+            }
+            
+            // Apply filters to update content
+            applyFilters();
+        }
+        
+        // Function to attach sort listeners for table view
+        function attachSortListeners() {
+            const sortableHeaders = document.querySelectorAll('.sortable');
+            
+            sortableHeaders.forEach(header => {
+                header.addEventListener('click', function() {
+                    const column = this.dataset.column;
+                    const currentDirection = this.dataset.direction || 'asc';
+                    const newDirection = currentDirection === 'asc' ? 'desc' : 'asc';
+                    
+                    // Remove sort indicators from all headers
+                    sortableHeaders.forEach(h => {
+                        h.dataset.direction = '';
+                        h.querySelector('.sort-icon').className = 'sort-icon';
+                    });
+                    
+                    // Set new direction and update sort indicator
+                    this.dataset.direction = newDirection;
+                    this.querySelector('.sort-icon').className = `sort-icon ${newDirection}`;
+                    
+                    // Sort the table
+                    sortTable(column, newDirection);
+                });
+            });
+        }
+        
+        // Function to sort table
+        function sortTable(column, direction) {
+            const table = document.querySelector('.job-postings-table');
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            // Sort rows
+            rows.sort((a, b) => {
+                const aValue = a.querySelector(`td[data-column="${column}"]`).textContent.trim();
+                const bValue = b.querySelector(`td[data-column="${column}"]`).textContent.trim();
+                
+                if (direction === 'asc') {
+                    return aValue.localeCompare(bValue);
+                } else {
+                    return bValue.localeCompare(aValue);
+                }
+            });
+            
+            // Remove existing rows
+            while (tbody.firstChild) {
+                tbody.removeChild(tbody.firstChild);
+            }
+            
+            // Add sorted rows
+            rows.forEach(row => {
+                tbody.appendChild(row);
+            });
+        }
+        
+        // Attach event listeners
+        filterInputs.forEach(input => {
+            input.addEventListener('change', applyFilters);
+        });
+        
+        resetFiltersBtn.addEventListener('click', resetFilters);
+        
+        cardViewBtn.addEventListener('click', function() {
+            switchViewMode('card');
+        });
+        
+        tableViewBtn.addEventListener('click', function() {
+            switchViewMode('table');
+        });
+        
+        // Initial setup for table sorting
+        if (currentViewMode === 'table') {
+            attachSortListeners();
+        }
+    });
+</script>
+{% endblock %}
