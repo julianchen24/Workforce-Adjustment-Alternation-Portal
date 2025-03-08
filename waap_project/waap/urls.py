@@ -21,4 +21,7 @@ urlpatterns = [
     
     # Public Job Posting URLs
     path('browse/', views.PublicJobPostingView.as_view(), name='public_job_postings'),
+    
+    # Contact Form URLs
+    path('job-postings/<int:pk>/contact/', views.contact_form, name='contact_form'),
 ]

@@ -1,0 +1,18 @@
+{% extends 'waap/base.html' %}
+
+{% block title %}Message Sent - WAAP{% endblock %}
+
+{% block content %}
+<div class="content-container">
+    <div class="success-message">
+        <h2>Message Sent Successfully</h2>
+        <p>Your message has been sent to the job posting owner. They will contact you directly via the email address you provided.</p>
+        <p>Thank you for using the WAAP system!</p>
+    </div>
+    
+    <div class="action-links">
+        <a href="{% url 'waap:job_posting_detail' job_posting.id %}" class="btn btn-primary">Return to Job Posting</a>
+        <a href="{% url 'waap:public_job_postings' %}" class="btn btn-secondary">Browse More Job Postings</a>
+    </div>
+</div>
+{% endblock %}

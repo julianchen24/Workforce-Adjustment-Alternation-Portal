@@ -4,9 +4,12 @@ from django.conf import settings
 from django.db import connections
 from django.utils import timezone
 from django.core import mail
+from django.core.exceptions import ValidationError
 import unittest
 from datetime import timedelta
-from .models import Department, JobPosting, WaapUser, OneTimeToken
+from unittest.mock import patch, MagicMock
+from .models import Department, JobPosting, WaapUser, OneTimeToken, ContactMessage
+from .forms import ContactForm
 
 class ProjectSetupTest(TestCase):
     """Test basic project setup and configuration."""
@@ -748,6 +751,208 @@ class PublicJobPostingViewTest(TestCase):
         
         # Check that the HTML contains the no results message
         self.assertIn('No job postings match your filter criteria', data['html'])
+
+
+class ContactFormTest(TestCase):
+    """Test the contact form functionality."""
+    
+    def setUp(self):
+        """Set up test data."""
+        self.client = Client()
+        
+        # Create a department
+        self.department = Department.objects.create(name="Information Technology")
+        
+        # Create a job posting with contact email
+        self.job_posting = JobPosting.objects.create(
+            job_title="Software Developer",
+            department=self.department,
+            location="Ottawa, ON",
+            classification="PERMANENT",
+            language_profile="BILINGUAL",
+            contact_email="hr@example.ca",
+            expiration_date=timezone.now() + timedelta(days=30)
+        )
+        
+        # Create a job posting with creator but no contact email
+        self.user = WaapUser.objects.create(
+            first_name="Test",
+            last_name="User",
+            email="test.user@government.ca",
+            department="Information Technology"
+        )
+        
+        self.job_posting_with_creator = JobPosting.objects.create(
+            job_title="Data Analyst",
+            department=self.department,
+            location="Toronto, ON",
+            classification="CONTRACT",
+            language_profile="ENGLISH",
+            creator=self.user,
+            expiration_date=timezone.now() + timedelta(days=30)
+        )
+        
+        # Create an expired job posting
+        self.expired_job_posting = JobPosting.objects.create(
+            job_title="Expired Position",
+            department=self.department,
+            location="Montreal, QC",
+            classification="TEMPORARY",
+            language_profile="FRENCH",
+            contact_email="expired@example.ca",
+            expiration_date=timezone.now() - timedelta(days=1)
+        )
+        
+        # URL for the contact form
+        self.contact_url = reverse('waap:contact_form', kwargs={'pk': self.job_posting.id})
+        self.contact_url_with_creator = reverse('waap:contact_form', kwargs={'pk': self.job_posting_with_creator.id})
+        self.contact_url_expired = reverse('waap:contact_form', kwargs={'pk': self.expired_job_posting.id})
+        
+        # Valid form data
+        self.valid_form_data = {
+            'sender_name': 'John Doe',
+            'sender_email': 'john.doe@example.com',
+            'message': 'I am interested in this position. Please contact me.',
+            'captcha': 'PASSED',  # This will be mocked
+        }
+    
+    @patch('captcha.fields.ReCaptchaField.clean')
+    def test_contact_form_get(self, mock_clean):
+        """Test that the contact form page loads correctly."""
+        response = self.client.get(self.contact_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'waap/contact_form.html')
+        self.assertIn('form', response.context)
+        self.assertEqual(response.context['job_posting'], self.job_posting)
+    
+    @patch('captcha.fields.ReCaptchaField.clean')
+    def test_contact_form_post_valid(self, mock_clean):
+        """Test submitting a valid contact form."""
+        # Mock the CAPTCHA validation to always pass
+        mock_clean.return_value = 'PASSED'
+        
+        # Submit the form
+        response = self.client.post(self.contact_url, self.valid_form_data)
+        
+        # Check that the response is correct
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'waap/contact_success.html')
+        
+        # Check that a contact message was created
+        self.assertEqual(ContactMessage.objects.count(), 1)
+        contact_message = ContactMessage.objects.first()
+        self.assertEqual(contact_message.sender_name, 'John Doe')
+        self.assertEqual(contact_message.sender_email, 'john.doe@example.com')
+        self.assertEqual(contact_message.message, 'I am interested in this position. Please contact me.')
+        self.assertEqual(contact_message.job_posting, self.job_posting)
+        self.assertTrue(contact_message.is_sent)
+        
+        # Check that an email was sent
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.job_posting.contact_email])
+        self.assertEqual(mail.outbox[0].reply_to, [contact_message.sender_email])
+        self.assertIn(self.job_posting.job_title, mail.outbox[0].subject)
+    
+    @patch('captcha.fields.ReCaptchaField.clean')
+    def test_contact_form_post_invalid_captcha(self, mock_clean):
+        """Test submitting a form with invalid CAPTCHA."""
+        # Mock the CAPTCHA validation to fail
+        mock_clean.side_effect = ValidationError('Invalid CAPTCHA')
+        
+        # Submit the form
+        response = self.client.post(self.contact_url, self.valid_form_data)
+        
+        # Check that the response is correct
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'waap/contact_form.html')
+        
+        # Check that no contact message was created
+        self.assertEqual(ContactMessage.objects.count(), 0)
+        
+        # Check that no email was sent
+        self.assertEqual(len(mail.outbox), 0)
+    
+    @patch('captcha.fields.ReCaptchaField.clean')
+    def test_contact_form_post_invalid_data(self, mock_clean):
+        """Test submitting a form with invalid data."""
+        # Mock the CAPTCHA validation to pass
+        mock_clean.return_value = 'PASSED'
+        
+        # Submit the form with invalid data (missing email)
+        invalid_data = self.valid_form_data.copy()
+        del invalid_data['sender_email']
+        
+        response = self.client.post(self.contact_url, invalid_data)
+        
+        # Check that the response is correct
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'waap/contact_form.html')
+        
+        # Check that no contact message was created
+        self.assertEqual(ContactMessage.objects.count(), 0)
+        
+        # Check that no email was sent
+        self.assertEqual(len(mail.outbox), 0)
+    
+    @patch('captcha.fields.ReCaptchaField.clean')
+    def test_contact_form_expired_job_posting(self, mock_clean):
+        """Test that contact form shows an error for expired job postings."""
+        response = self.client.get(self.contact_url_expired)
+        
+        # Check that the response contains an error message
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'waap/contact_form.html')
+        self.assertIn('error_message', response.context)
+        self.assertIn('expired', response.context['error_message'])
+    
+    @patch('captcha.fields.ReCaptchaField.clean')
+    def test_contact_form_email_relay_with_contact_email(self, mock_clean):
+        """Test that the email relay works correctly with job posting contact email."""
+        # Mock the CAPTCHA validation to pass
+        mock_clean.return_value = 'PASSED'
+        
+        # Submit the form
+        response = self.client.post(self.contact_url, self.valid_form_data)
+        
+        # Check that the email was sent to the job posting contact email
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.job_posting.contact_email])
+    
+    @patch('captcha.fields.ReCaptchaField.clean')
+    def test_contact_form_email_relay_with_creator_email(self, mock_clean):
+        """Test that the email relay works correctly with creator's email when no contact email is provided."""
+        # Mock the CAPTCHA validation to pass
+        mock_clean.return_value = 'PASSED'
+        
+        # Submit the form
+        response = self.client.post(self.contact_url_with_creator, self.valid_form_data)
+        
+        # Check that the email was sent to the creator's email
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.user.email])
+    
+    @patch('captcha.fields.ReCaptchaField.clean')
+    @patch('waap.views.send_contact_email')
+    def test_contact_form_email_sending_failure(self, mock_send_email, mock_clean):
+        """Test handling of email sending failure."""
+        # Mock the CAPTCHA validation to pass
+        mock_clean.return_value = 'PASSED'
+        
+        # Mock the email sending to fail
+        mock_send_email.return_value = False
+        
+        # Submit the form
+        response = self.client.post(self.contact_url, self.valid_form_data)
+        
+        # Check that the response contains an error message
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'waap/contact_form.html')
+        self.assertIn('error_message', response.context)
+        
+        # Check that a contact message was created but marked as not sent
+        self.assertEqual(ContactMessage.objects.count(), 1)
+        contact_message = ContactMessage.objects.first()
+        self.assertFalse(contact_message.is_sent)
 
 
 class JobPostingDeletionTest(TestCase):

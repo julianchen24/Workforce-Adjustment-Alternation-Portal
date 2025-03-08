@@ -1,0 +1,66 @@
+{% extends 'waap/base.html' %}
+
+{% block title %}Contact {{ job_posting.job_title }} - WAAP{% endblock %}
+
+{% block content %}
+<div class="content-container">
+    <h2>Contact: {{ job_posting.job_title }}</h2>
+    
+    {% if error_message %}
+    <div class="error-message">
+        {{ error_message }}
+    </div>
+    {% endif %}
+    
+    <div class="job-posting-summary">
+        <p><strong>Department:</strong> {{ job_posting.department.name }}</p>
+        <p><strong>Location:</strong> {{ job_posting.location }}</p>
+        <p><strong>Classification:</strong> {{ job_posting.get_classification_display }}</p>
+    </div>
+    
+    <div class="contact-form">
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="{{ form.sender_name.id_for_label }}">{{ form.sender_name.label }}</label>
+                {{ form.sender_name }}
+                {% if form.sender_name.errors %}
+                <div class="form-error">{{ form.sender_name.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="form-group">
+                <label for="{{ form.sender_email.id_for_label }}">{{ form.sender_email.label }}</label>
+                {{ form.sender_email }}
+                {% if form.sender_email.errors %}
+                <div class="form-error">{{ form.sender_email.errors }}</div>
+                {% endif %}
+                {% if form.sender_email.help_text %}
+                <div class="form-help-text">{{ form.sender_email.help_text }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="form-group">
+                <label for="{{ form.message.id_for_label }}">{{ form.message.label }}</label>
+                {{ form.message }}
+                {% if form.message.errors %}
+                <div class="form-error">{{ form.message.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="form-group captcha-group">
+                {{ form.captcha }}
+                {% if form.captcha.errors %}
+                <div class="form-error">{{ form.captcha.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Send Message</button>
+                <a href="{% url 'waap:job_posting_detail' job_posting.id %}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

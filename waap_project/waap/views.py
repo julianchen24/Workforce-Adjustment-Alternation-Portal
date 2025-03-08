@@ -11,7 +11,8 @@ from django.conf import settings
 from django.views.decorators.http import require_http_methods
 from django.db.models import Q
 
-from .models import WaapUser, OneTimeToken, Department, JobPosting
+from .models import WaapUser, OneTimeToken, Department, JobPosting, ContactMessage
+from .forms import ContactForm
 import re
 import json
 import secrets
@@ -517,3 +518,101 @@ class PublicJobPostingView(View):
             'html': html,
             'count': job_postings.count(),
         })
+
+
+def send_contact_email(request, contact_message):
+    """Send a contact email to the job posting owner."""
+    job_posting = contact_message.job_posting
+    
+    # Get the recipient email (job posting contact email or creator's email)
+    recipient_email = job_posting.contact_email
+    if not recipient_email and job_posting.creator:
+        recipient_email = job_posting.creator.email
+    
+    if not recipient_email:
+        # If no recipient email is available, mark the message as not sent
+        contact_message.is_sent = False
+        contact_message.save()
+        return False
+    
+    # Render the email templates
+    subject = f'New Contact Message: {job_posting.job_title}'
+    html_content = render_to_string('waap/email/contact_message.html', {
+        'job_posting': job_posting,
+        'contact_message': contact_message,
+    })
+    text_content = render_to_string('waap/email/contact_message.txt', {
+        'job_posting': job_posting,
+        'contact_message': contact_message,
+    })
+    
+    # Create the email message
+    email_message = EmailMultiAlternatives(
+        subject=subject,
+        body=text_content,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[recipient_email],
+        reply_to=[contact_message.sender_email]  # Set reply-to as the sender's email
+    )
+    email_message.attach_alternative(html_content, "text/html")
+    
+    # Send the email
+    try:
+        email_message.send()
+        contact_message.is_sent = True
+        contact_message.save()
+        return True
+    except Exception as e:
+        # Log the error in a real application
+        contact_message.is_sent = False
+        contact_message.save()
+        return False
+
+
+@require_http_methods(["GET", "POST"])
+def contact_form(request, pk):
+    """View for the contact form."""
+    # Get the job posting
+    job_posting = get_object_or_404(JobPosting, pk=pk)
+    
+    # Check if the job posting is active
+    if not job_posting.is_active:
+        return render(request, 'waap/contact_form.html', {
+            'job_posting': job_posting,
+            'error_message': 'This job posting has expired and is no longer accepting contact messages.',
+        })
+    
+    if request.method == 'POST':
+        # Process the form submission
+        form = ContactForm(request.POST)
+        
+        if form.is_valid():
+            # Create the contact message but don't save it yet
+            contact_message = form.save(commit=False)
+            contact_message.job_posting = job_posting
+            contact_message.save()
+            
+            # Send the email
+            email_sent = send_contact_email(request, contact_message)
+            
+            if email_sent:
+                # Redirect to the success page
+                return render(request, 'waap/contact_success.html', {
+                    'job_posting': job_posting,
+                })
+            else:
+                # Show an error message
+                return render(request, 'waap/contact_form.html', {
+                    'job_posting': job_posting,
+                    'form': form,
+                    'error_message': 'Failed to send the contact message. Please try again later.',
+                })
+    else:
+        # Create a new form
+        form = ContactForm()
+    
+    # Render the form
+    return render(request, 'waap/contact_form.html', {
+        'job_posting': job_posting,
+        'form': form,
+    })

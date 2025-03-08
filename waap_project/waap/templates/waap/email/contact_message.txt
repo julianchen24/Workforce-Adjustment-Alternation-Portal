@@ -1,0 +1,19 @@
+New Contact Message from WAAP
+===============================
+
+You have received a new message regarding your job posting:
+
+Job Posting: {{ job_posting.job_title }}
+Department: {{ job_posting.department.name }}
+From: {{ contact_message.sender_name }}
+Email: {{ contact_message.sender_email }}
+Date: {{ contact_message.created_at|date:"F j, Y, g:i a" }}
+
+Message:
+{{ contact_message.message }}
+
+---
+
+This message was sent through the WAAP (Web Application for Animal Professionals) system.
+Please reply directly to the sender's email address if you wish to respond.
+Do not reply to this email as it was sent from an unmonitored address.

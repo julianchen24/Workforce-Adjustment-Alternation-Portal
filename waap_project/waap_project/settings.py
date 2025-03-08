@@ -38,7 +38,13 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "waap",
+    "captcha",
 ]
+
+# reCAPTCHA settings
+RECAPTCHA_PUBLIC_KEY = '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'  # Test key
+RECAPTCHA_PRIVATE_KEY = '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe'  # Test key
+SILENCED_SYSTEM_CHECKS = ['captcha.recaptcha_test_key_error']  # Silence the warning about using test keys
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",

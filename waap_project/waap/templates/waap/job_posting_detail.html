@@ -33,12 +33,12 @@
             <div class="detail-value">{{ job_posting.get_language_profile_display }}</div>
         </div>
         
-        {% if job_posting.contact_email %}
         <div class="detail-row">
-            <div class="detail-label">Contact Email:</div>
-            <div class="detail-value">{{ job_posting.contact_email }}</div>
+            <div class="detail-label">Contact:</div>
+            <div class="detail-value">
+                <a href="{% url 'waap:contact_form' job_posting.id %}" class="btn btn-primary">Contact</a>
+            </div>
         </div>
-        {% endif %}
         
         <div class="detail-row">
             <div class="detail-label">Posting Date:</div>

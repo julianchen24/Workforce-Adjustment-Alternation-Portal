@@ -3,6 +3,7 @@ from django.utils import timezone
 from datetime import timedelta
 import uuid
 import secrets
+import hashlib
 
 class OneTimeToken(models.Model):
     """Model for one-time login tokens."""
@@ -113,3 +114,26 @@ class JobPosting(models.Model):
     def is_active(self):
         """Check if the job posting is still active."""
         return timezone.now() <= self.expiration_date
+
+
+class ContactMessage(models.Model):
+    """Model for storing contact messages with one-time email relay."""
+    job_posting = models.ForeignKey(JobPosting, on_delete=models.CASCADE, related_name='contact_messages')
+    sender_name = models.CharField(max_length=100)
+    sender_email = models.EmailField()
+    # Store a hashed version of the email to prevent storing the actual email directly
+    sender_email_hash = models.CharField(max_length=64, blank=True)
+    message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_sent = models.BooleanField(default=False)
+    
+    def __str__(self):
+        return f"Message from {self.sender_name} to {self.job_posting.job_title}"
+    
+    def save(self, *args, **kwargs):
+        # Generate a hash of the sender's email if not provided
+        if not self.sender_email_hash and self.sender_email:
+            # Use SHA-256 to hash the email
+            self.sender_email_hash = hashlib.sha256(self.sender_email.encode()).hexdigest()
+            
+        super().save(*args, **kwargs)

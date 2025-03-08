@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>New Contact Message from WAAP</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-bottom: 2px solid #ddd;
+            margin-bottom: 20px;
+        }
+        .message-details {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-left: 4px solid #007bff;
+        }
+        .message-content {
+            white-space: pre-wrap;
+            padding: 15px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+            font-size: 0.9em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>New Contact Message from WAAP</h2>
+    </div>
+    
+    <p>You have received a new message regarding your job posting:</p>
+    
+    <div class="message-details">
+        <p><strong>Job Posting:</strong> {{ job_posting.job_title }}</p>
+        <p><strong>Department:</strong> {{ job_posting.department.name }}</p>
+        <p><strong>From:</strong> {{ contact_message.sender_name }}</p>
+        <p><strong>Email:</strong> {{ contact_message.sender_email }}</p>
+        <p><strong>Date:</strong> {{ contact_message.created_at|date:"F j, Y, g:i a" }}</p>
+    </div>
+    
+    <h3>Message:</h3>
+    <div class="message-content">
+        {{ contact_message.message }}
+    </div>
+    
+    <div class="footer">
+        <p>This message was sent through the WAAP (Web Application for Animal Professionals) system.</p>
+        <p>Please reply directly to the sender's email address if you wish to respond.</p>
+        <p>Do not reply to this email as it was sent from an unmonitored address.</p>
+    </div>
+</body>
+</html>
