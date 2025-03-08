@@ -1,0 +1,77 @@
+{% extends 'waap/base.html' %}
+
+{% block title %}Create Job Posting - WAAP{% endblock %}
+
+{% block content %}
+<div class="content-container">
+    <h2>Create New Job Posting</h2>
+    
+    {% if error_message %}
+    <div class="error-message">
+        {{ error_message }}
+    </div>
+    {% endif %}
+    
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="job_title">Job Title:</label>
+            <input type="text" id="job_title" name="job_title" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="department">Department:</label>
+            <select id="department" name="department" required>
+                <option value="">Select a department</option>
+                {% for dept in departments %}
+                <option value="{{ dept.id }}">{{ dept.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="location">Location:</label>
+            <input type="text" id="location" name="location" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="classification">Classification:</label>
+            <select id="classification" name="classification" required>
+                <option value="">Select a classification</option>
+                {% for value, label in classification_choices %}
+                <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="language_profile">Language Profile:</label>
+            <select id="language_profile" name="language_profile" required>
+                <option value="">Select a language profile</option>
+                {% for value, label in language_profile_choices %}
+                <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="contact_email">Contact Email:</label>
+            <input type="email" id="contact_email" name="contact_email">
+        </div>
+        
+        <div class="form-group">
+            <label for="expiration_date">Expiration Date (optional):</label>
+            <input type="date" id="expiration_date" name="expiration_date">
+            <small>If not provided, the posting will expire in 30 days.</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="alternation_criteria">Alternation Criteria (JSON format):</label>
+            <textarea id="alternation_criteria" name="alternation_criteria" rows="5" placeholder='{"experience": "3+ years", "skills": ["Python", "Django"]}'></textarea>
+            <small>Enter criteria in JSON format. Leave empty for no criteria.</small>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Create Job Posting</button>
+    </form>
+</div>
+{% endblock %}

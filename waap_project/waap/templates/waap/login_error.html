@@ -1,0 +1,17 @@
+{% extends 'waap/base.html' %}
+
+{% block title %}Login Error - WAAP{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <h2>Login Error</h2>
+    <div class="error-message">
+        <p><strong>{{ error_message }}</strong></p>
+        <p>The login link you used is either invalid, expired, or has already been used.</p>
+        <p>Please request a new login link to continue.</p>
+    </div>
+    <div class="action-buttons">
+        <a href="{% url 'waap:login_request' %}" class="btn btn-primary">Request New Login Link</a>
+    </div>
+</div>
+{% endblock %}

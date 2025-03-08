@@ -1,6 +1,43 @@
 from django.db import models
 from django.utils import timezone
 from datetime import timedelta
+import uuid
+import secrets
+
+class OneTimeToken(models.Model):
+    """Model for one-time login tokens."""
+    token = models.CharField(max_length=100, unique=True)
+    email = models.EmailField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_used = models.BooleanField(default=False)
+    
+    def __str__(self):
+        return f"Token for {self.email} ({'Used' if self.is_used else 'Active'})"
+    
+    def save(self, *args, **kwargs):
+        # Generate a secure token if not provided
+        if not self.token:
+            self.token = secrets.token_urlsafe(32)
+        
+        # Set expiration time if not provided (default: 1 hour)
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timedelta(hours=1)
+            
+        super().save(*args, **kwargs)
+    
+    @property
+    def is_valid(self):
+        """Check if the token is still valid (not expired and not used)."""
+        return not self.is_used and timezone.now() <= self.expires_at
+    
+    @classmethod
+    def create_for_email(cls, email):
+        """Create a new token for the given email."""
+        token = cls(email=email)
+        token.save()
+        return token
+
 
 class WaapUser(models.Model):
     """Basic user model for the WAAP system."""

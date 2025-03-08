@@ -1,0 +1,18 @@
+{% extends 'waap/base.html' %}
+
+{% block title %}Login Successful - WAAP{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <h2>Login Successful</h2>
+    <div class="success-message">
+        <p>Welcome, <strong>{{ user.first_name }} {{ user.last_name }}</strong>!</p>
+        <p>You have successfully logged in to the Workforce Adjustment Alternation Portal.</p>
+        <p>You can now access all features of the portal, including creating job postings.</p>
+    </div>
+    <div class="action-buttons">
+        <a href="{% url 'waap:index' %}" class="btn btn-primary">Go to Home</a>
+        <!-- Add more action buttons as needed -->
+    </div>
+</div>
+{% endblock %}

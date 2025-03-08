@@ -1,0 +1,14 @@
+{% extends 'waap/base.html' %}
+
+{% block title %}Login Link Sent - WAAP{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <h2>Login Link Sent</h2>
+    <div class="success-message">
+        <p>A secure login link has been sent to <strong>{{ email }}</strong>.</p>
+        <p>Please check your email and click on the link to log in. The link will expire in 1 hour.</p>
+        <p>If you don't receive the email within a few minutes, please check your spam folder or <a href="{% url 'waap:login_request' %}">request a new link</a>.</p>
+    </div>
+</div>
+{% endblock %}
