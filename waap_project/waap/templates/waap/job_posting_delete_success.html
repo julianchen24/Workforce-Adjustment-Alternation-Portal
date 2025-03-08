@@ -1,0 +1,17 @@
+{% extends 'waap/base.html' %}
+
+{% block title %}Deletion Successful - WAAP{% endblock %}
+
+{% block content %}
+<div class="content-container">
+    <h2>Job Posting Deleted</h2>
+    
+    <div class="success-message">
+        <p>The job posting "{{ job_title }}" has been successfully deleted.</p>
+    </div>
+    
+    <div class="action-links">
+        <a href="{% url 'waap:index' %}" class="btn btn-primary">Return to Home</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends 'waap/base.html' %}
+
+{% block title %}Job Postings - WAAP{% endblock %}
+
+{% block content %}
+<div class="content-container">
+    <h2>Available Job Postings</h2>
+    
+    <div class="action-links">
+        <a href="{% url 'waap:job_posting_create' %}" class="btn btn-primary">Create New Job Posting</a>
+    </div>
+    
+    {% if job_postings %}
+        <div class="job-postings-list">
+            {% for job_posting in job_postings %}
+                <div class="job-posting-card">
+                    <h3><a href="{% url 'waap:job_posting_detail' job_posting.id %}">{{ job_posting.job_title }}</a></h3>
+                    <div class="job-posting-meta">
+                        <p><strong>Department:</strong> {{ job_posting.department.name }}</p>
+                        <p><strong>Location:</strong> {{ job_posting.location }}</p>
+                        <p><strong>Classification:</strong> {{ job_posting.get_classification_display }}</p>
+                        <p><strong>Language Profile:</strong> {{ job_posting.get_language_profile_display }}</p>
+                        <p><strong>Posted:</strong> {{ job_posting.posting_date|date:"F j, Y" }}</p>
+                        <p><strong>Expires:</strong> {{ job_posting.expiration_date|date:"F j, Y" }}</p>
+                    </div>
+                    <div class="job-posting-actions">
+                        <a href="{% url 'waap:job_posting_detail' job_posting.id %}" class="btn btn-secondary">View Details</a>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="no-results">
+            <p>No job postings are currently available.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -13,11 +13,12 @@ from django.views.decorators.http import require_http_methods
 from .models import WaapUser, OneTimeToken, Department, JobPosting
 import re
 import json
+import secrets
 from datetime import datetime
 
 def index(request):
     """Home page view for the WAAP application."""
-    return HttpResponse("<h1>Welcome to the Workforce Adjustment Alternation Portal (WAAP)</h1>")
+    return redirect('waap:job_posting_list')
 
 # Session key for authentication
 AUTH_SESSION_KEY = 'waap_authenticated_user_id'
@@ -167,7 +168,7 @@ def logout(request):
     if AUTH_SESSION_KEY in request.session:
         del request.session[AUTH_SESSION_KEY]
     
-    return redirect('waap:index')
+    return redirect('waap:job_posting_list')
 
 
 @login_required
@@ -251,6 +252,7 @@ def job_posting_create(request):
                 language_profile=language_profile,
                 contact_email=contact_email,
                 alternation_criteria=alternation_criteria,
+                creator=user,  # Set the creator to the authenticated user
             )
             
             if expiration_date:
@@ -258,8 +260,8 @@ def job_posting_create(request):
             
             job_posting.save()
             
-            # Redirect to a success page or job posting list
-            return redirect('waap:index')  # You might want to create a job posting list view
+            # Redirect to the job posting detail page
+            return redirect('waap:job_posting_detail', pk=job_posting.id)
             
         except Exception as e:
             # Log the error in a real application
@@ -277,8 +279,141 @@ def job_posting_create(request):
         'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
     })
 
+def send_deletion_email(request, job_posting, user):
+    """Send a deletion email with the job posting's deletion token."""
+    # Construct the deletion URL with the token
+    deletion_url = request.build_absolute_uri(
+        reverse('waap:job_posting_delete_confirm', kwargs={'token': job_posting.deletion_token})
+    )
+    
+    # Render the email templates
+    subject = 'WAAP Job Posting Deletion Link'
+    html_content = render_to_string('waap/email/deletion_link.html', {
+        'job_posting': job_posting,
+        'deletion_url': deletion_url,
+    })
+    text_content = render_to_string('waap/email/deletion_link.txt', {
+        'job_posting': job_posting,
+        'deletion_url': deletion_url,
+    })
+    
+    # Create the email message
+    email_message = EmailMultiAlternatives(
+        subject=subject,
+        body=text_content,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[user.email]
+    )
+    email_message.attach_alternative(html_content, "text/html")
+    
+    # Send the email
+    return email_message.send()
+
+
+@login_required
+def job_posting_detail(request, pk):
+    """View for displaying a job posting's details."""
+    # Get the job posting
+    job_posting = get_object_or_404(JobPosting, pk=pk)
+    
+    # Get the authenticated user
+    user = get_authenticated_user(request)
+    
+    # Check if the user is the creator of the job posting
+    is_owner = user and job_posting.creator and user.id == job_posting.creator.id
+    
+    # Render the template
+    return render(request, 'waap/job_posting_detail.html', {
+        'job_posting': job_posting,
+        'is_owner': is_owner,
+    })
+
+
+@login_required
+def job_posting_delete_request(request, pk):
+    """View for requesting a deletion link for a job posting."""
+    # Get the job posting
+    job_posting = get_object_or_404(JobPosting, pk=pk)
+    
+    # Get the authenticated user
+    user = get_authenticated_user(request)
+    
+    # Check if the user is the creator of the job posting
+    if not user or not job_posting.creator or user.id != job_posting.creator.id:
+        return render(request, 'waap/job_posting_delete_request.html', {
+            'error_message': 'You are not authorized to delete this job posting.',
+            'job_posting': job_posting,
+            'user': user,
+        })
+    
+    if request.method == 'POST':
+        # Generate a new deletion token
+        job_posting.deletion_token = secrets.token_urlsafe(32)
+        job_posting.save()
+        
+        # Send the deletion email
+        try:
+            send_deletion_email(request, job_posting, user)
+            return render(request, 'waap/job_posting_delete_request_success.html', {
+                'job_posting': job_posting,
+                'email': user.email,
+            })
+        except Exception as e:
+            # Log the error in a real application
+            return render(request, 'waap/job_posting_delete_request.html', {
+                'error_message': 'Failed to send deletion email. Please try again later.',
+                'job_posting': job_posting,
+                'user': user,
+            })
+    
+    # Render the form for GET requests
+    return render(request, 'waap/job_posting_delete_request.html', {
+        'job_posting': job_posting,
+        'user': user,
+    })
+
+
+def job_posting_delete_confirm(request, token):
+    """View for confirming the deletion of a job posting using a token."""
+    # Find the job posting with the given deletion token
+    try:
+        job_posting = JobPosting.objects.get(deletion_token=token)
+    except JobPosting.DoesNotExist:
+        return render(request, 'waap/job_posting_delete_confirm.html', {
+            'error_message': 'Invalid deletion link.',
+        })
+    
+    if request.method == 'POST':
+        # Store the job title for the success message
+        job_title = job_posting.job_title
+        
+        # Delete the job posting
+        job_posting.delete()
+        
+        # Render the success template
+        return render(request, 'waap/job_posting_delete_success.html', {
+            'job_title': job_title,
+        })
+    
+    # Render the confirmation template for GET requests
+    return render(request, 'waap/job_posting_delete_confirm.html', {
+        'job_posting': job_posting,
+    })
+
+
 class UserListView(ListView):
     """View to display all users in the system."""
     model = WaapUser
     template_name = 'waap/user_list.html'
     context_object_name = 'users'
+
+
+class JobPostingListView(ListView):
+    """View to display all job postings in the system."""
+    model = JobPosting
+    template_name = 'waap/job_posting_list.html'
+    context_object_name = 'job_postings'
+    
+    def get_queryset(self):
+        """Return only active job postings."""
+        return JobPosting.objects.filter(expiration_date__gte=timezone.now()).order_by('-posting_date')

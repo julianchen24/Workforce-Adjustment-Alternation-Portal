@@ -1,0 +1,32 @@
+{% extends 'waap/base.html' %}
+
+{% block title %}Confirm Deletion - WAAP{% endblock %}
+
+{% block content %}
+<div class="content-container">
+    <h2>Confirm Job Posting Deletion</h2>
+    
+    {% if error_message %}
+    <div class="error-message">
+        {{ error_message }}
+    </div>
+    {% endif %}
+    
+    <div class="job-posting-summary">
+        <h3>{{ job_posting.job_title }}</h3>
+        <p>Department: {{ job_posting.department.name }}</p>
+        <p>Location: {{ job_posting.location }}</p>
+        <p>Posted on: {{ job_posting.posting_date|date:"F j, Y" }}</p>
+    </div>
+    
+    <div class="deletion-warning">
+        <p class="warning-text">Warning: You are about to permanently delete this job posting. This action cannot be undone.</p>
+        
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Confirm Deletion</button>
+            <a href="{% url 'waap:index' %}" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

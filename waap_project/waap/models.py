@@ -91,6 +91,10 @@ class JobPosting(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    # Fields for tracking the creator and deletion
+    creator = models.ForeignKey(WaapUser, on_delete=models.SET_NULL, null=True, related_name='job_postings')
+    deletion_token = models.CharField(max_length=100, unique=True, null=True, blank=True)
+    
     def __str__(self):
         return f"{self.job_title} - {self.department}"
     
@@ -98,6 +102,11 @@ class JobPosting(models.Model):
         # If expiration_date is not set, default to 30 days from posting_date
         if not self.expiration_date:
             self.expiration_date = timezone.now() + timedelta(days=30)
+        
+        # Generate a secure deletion token if not provided
+        if not self.deletion_token:
+            self.deletion_token = secrets.token_urlsafe(32)
+            
         super().save(*args, **kwargs)
     
     @property

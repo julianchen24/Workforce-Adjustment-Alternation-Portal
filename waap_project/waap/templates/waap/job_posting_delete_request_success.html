@@ -1,0 +1,19 @@
+{% extends 'waap/base.html' %}
+
+{% block title %}Deletion Link Sent - WAAP{% endblock %}
+
+{% block content %}
+<div class="content-container">
+    <h2>Deletion Link Sent</h2>
+    
+    <div class="success-message">
+        <p>A deletion link has been sent to your email address ({{ email }}).</p>
+        <p>Please check your inbox and follow the link to delete the job posting.</p>
+        <p>The link will expire in 24 hours for security reasons.</p>
+    </div>
+    
+    <div class="action-links">
+        <a href="{% url 'waap:job_posting_detail' job_posting.id %}" class="btn btn-primary">Return to Job Posting</a>
+    </div>
+</div>
+{% endblock %}

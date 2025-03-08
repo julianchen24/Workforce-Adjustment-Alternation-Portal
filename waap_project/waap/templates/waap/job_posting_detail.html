@@ -1,0 +1,85 @@
+{% extends 'waap/base.html' %}
+
+{% block title %}{{ job_posting.job_title }} - WAAP{% endblock %}
+
+{% block content %}
+<div class="content-container">
+    <h2>{{ job_posting.job_title }}</h2>
+    
+    {% if success_message %}
+    <div class="success-message">
+        {{ success_message }}
+    </div>
+    {% endif %}
+    
+    <div class="job-posting-details">
+        <div class="detail-row">
+            <div class="detail-label">Department:</div>
+            <div class="detail-value">{{ job_posting.department.name }}</div>
+        </div>
+        
+        <div class="detail-row">
+            <div class="detail-label">Location:</div>
+            <div class="detail-value">{{ job_posting.location }}</div>
+        </div>
+        
+        <div class="detail-row">
+            <div class="detail-label">Classification:</div>
+            <div class="detail-value">{{ job_posting.get_classification_display }}</div>
+        </div>
+        
+        <div class="detail-row">
+            <div class="detail-label">Language Profile:</div>
+            <div class="detail-value">{{ job_posting.get_language_profile_display }}</div>
+        </div>
+        
+        {% if job_posting.contact_email %}
+        <div class="detail-row">
+            <div class="detail-label">Contact Email:</div>
+            <div class="detail-value">{{ job_posting.contact_email }}</div>
+        </div>
+        {% endif %}
+        
+        <div class="detail-row">
+            <div class="detail-label">Posting Date:</div>
+            <div class="detail-value">{{ job_posting.posting_date|date:"F j, Y" }}</div>
+        </div>
+        
+        <div class="detail-row">
+            <div class="detail-label">Expiration Date:</div>
+            <div class="detail-value">{{ job_posting.expiration_date|date:"F j, Y" }}</div>
+        </div>
+        
+        {% if job_posting.alternation_criteria %}
+        <div class="detail-row">
+            <div class="detail-label">Alternation Criteria:</div>
+            <div class="detail-value">
+                <ul>
+                {% for key, value in job_posting.alternation_criteria.items %}
+                    {% if value|length > 0 and value|first|length > 0 %}
+                        <li>{{ key|title }}:
+                            <ul>
+                            {% for item in value %}
+                                <li>{{ item }}</li>
+                            {% endfor %}
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li>{{ key|title }}: {{ value }}</li>
+                    {% endif %}
+                {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    {% if is_owner %}
+    <div class="owner-actions">
+        <h3>Owner Actions</h3>
+        <p>As the creator of this job posting, you can request a deletion link to be sent to your email.</p>
+        <a href="{% url 'waap:job_posting_delete_request' job_posting.id %}" class="btn btn-danger">Request Deletion Link</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -327,8 +327,9 @@ class OneTimeLoginViewsTest(TestCase):
         logout_url = reverse('waap:logout')
         response = self.client.get(logout_url)
         
-        # Check that the response is a redirect to the home page
-        self.assertRedirects(response, reverse('waap:index'))
+        # Check that the response is a redirect to the job posting list
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('waap:job_posting_list'), response.url)
         
         # Check that the user is no longer authenticated
         self.assertNotIn('waap_authenticated_user_id', self.client.session)
@@ -363,7 +364,7 @@ class LoginRequiredTest(TestCase):
         
         # Now the user should be authenticated
         response = self.client.get(reverse('waap:index'))
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 302)  # Redirect to job_posting_list
         
         # Clear the session to simulate a logged-out user
         session = self.client.session
@@ -373,3 +374,247 @@ class LoginRequiredTest(TestCase):
         
         # Now the user should not be authenticated
         # If we had a protected view, it would redirect to login
+        response = self.client.get(reverse('waap:job_posting_create'))
+        self.assertEqual(response.status_code, 302)  # Redirect to login
+        self.assertIn('login', response.url)
+
+
+class JobPostingCreationTest(TestCase):
+    """Test job posting creation functionality."""
+    
+    def setUp(self):
+        """Set up test data."""
+        self.client = Client()
+        self.test_email = "test.user@government.ca"
+        self.user = WaapUser.objects.create(
+            first_name="Test",
+            last_name="User",
+            email=self.test_email,
+            department="Information Technology"
+        )
+        
+        # Create a department for job posting
+        self.department = Department.objects.create(name="Information Technology")
+        
+        # Create a session to simulate a logged-in user
+        session = self.client.session
+        session['waap_authenticated_user_id'] = self.user.id
+        session.save()
+    
+    def test_job_posting_create_view_get(self):
+        """Test that the job posting create view loads correctly."""
+        response = self.client.get(reverse('waap:job_posting_create'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'waap/job_posting_create.html')
+        self.assertIn('departments', response.context)
+        self.assertIn('classification_choices', response.context)
+        self.assertIn('language_profile_choices', response.context)
+    
+    def test_job_posting_create_view_post(self):
+        """Test that a job posting can be created by an authenticated user."""
+        # Create a job posting
+        response = self.client.post(reverse('waap:job_posting_create'), {
+            'job_title': 'Software Developer',
+            'department': self.department.id,
+            'location': 'Ottawa, ON',
+            'classification': 'PERMANENT',
+            'language_profile': 'BILINGUAL',
+            'contact_email': 'hr@example.ca',
+            'alternation_criteria': '{"experience": "3+ years", "skills": ["Python", "Django"]}',
+        })
+        
+        # Check that the job posting was created
+        self.assertEqual(JobPosting.objects.count(), 1)
+        job_posting = JobPosting.objects.first()
+        self.assertEqual(job_posting.job_title, 'Software Developer')
+        self.assertEqual(job_posting.department, self.department)
+        self.assertEqual(job_posting.location, 'Ottawa, ON')
+        self.assertEqual(job_posting.classification, 'PERMANENT')
+        self.assertEqual(job_posting.language_profile, 'BILINGUAL')
+        self.assertEqual(job_posting.contact_email, 'hr@example.ca')
+        self.assertEqual(job_posting.alternation_criteria['experience'], '3+ years')
+        self.assertIn('Python', job_posting.alternation_criteria['skills'])
+        
+        # Check that the creator is set correctly
+        self.assertEqual(job_posting.creator, self.user)
+        
+        # Check that the response is a redirect to the job posting detail page
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('waap:job_posting_detail', kwargs={'pk': job_posting.id}))
+    
+    def test_job_posting_create_view_post_invalid(self):
+        """Test that invalid form data is handled correctly."""
+        # Try to create a job posting with missing required fields
+        response = self.client.post(reverse('waap:job_posting_create'), {
+            'job_title': 'Software Developer',
+            # Missing department
+            'location': 'Ottawa, ON',
+            'classification': 'PERMANENT',
+            'language_profile': 'BILINGUAL',
+        })
+        
+        # Check that the job posting was not created
+        self.assertEqual(JobPosting.objects.count(), 0)
+        
+        # Check that the response contains an error message
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'waap/job_posting_create.html')
+        self.assertIn('error_message', response.context)
+    
+    def test_job_posting_detail_view(self):
+        """Test that the job posting detail view loads correctly."""
+        # Create a job posting
+        job_posting = JobPosting.objects.create(
+            job_title='Software Developer',
+            department=self.department,
+            location='Ottawa, ON',
+            classification='PERMANENT',
+            language_profile='BILINGUAL',
+            contact_email='hr@example.ca',
+            creator=self.user,
+        )
+        
+        # Get the job posting detail page
+        response = self.client.get(reverse('waap:job_posting_detail', kwargs={'pk': job_posting.id}))
+        
+        # Check that the response is correct
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'waap/job_posting_detail.html')
+        self.assertEqual(response.context['job_posting'], job_posting)
+        self.assertTrue(response.context['is_owner'])
+
+
+class JobPostingDeletionTest(TestCase):
+    """Test job posting deletion functionality."""
+    
+    def setUp(self):
+        """Set up test data."""
+        self.client = Client()
+        self.test_email = "test.user@government.ca"
+        self.user = WaapUser.objects.create(
+            first_name="Test",
+            last_name="User",
+            email=self.test_email,
+            department="Information Technology"
+        )
+        
+        # Create another user who is not the creator
+        self.other_user = WaapUser.objects.create(
+            first_name="Other",
+            last_name="User",
+            email="other.user@government.ca",
+            department="Human Resources"
+        )
+        
+        # Create a department for job posting
+        self.department = Department.objects.create(name="Information Technology")
+        
+        # Create a job posting
+        self.job_posting = JobPosting.objects.create(
+            job_title='Software Developer',
+            department=self.department,
+            location='Ottawa, ON',
+            classification='PERMANENT',
+            language_profile='BILINGUAL',
+            contact_email='hr@example.ca',
+            creator=self.user,
+        )
+    
+    def test_job_posting_delete_request_view_owner(self):
+        """Test that the job posting delete request view works for the owner."""
+        # Create a session to simulate a logged-in user (the owner)
+        session = self.client.session
+        session['waap_authenticated_user_id'] = self.user.id
+        session.save()
+        
+        # Get the job posting delete request page
+        response = self.client.get(reverse('waap:job_posting_delete_request', kwargs={'pk': self.job_posting.id}))
+        
+        # Check that the response is correct
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'waap/job_posting_delete_request.html')
+        self.assertEqual(response.context['job_posting'], self.job_posting)
+        self.assertEqual(response.context['user'], self.user)
+        self.assertNotIn('error_message', response.context)
+    
+    def test_job_posting_delete_request_view_non_owner(self):
+        """Test that the job posting delete request view shows an error for non-owners."""
+        # Create a session to simulate a logged-in user (not the owner)
+        session = self.client.session
+        session['waap_authenticated_user_id'] = self.other_user.id
+        session.save()
+        
+        # Get the job posting delete request page
+        response = self.client.get(reverse('waap:job_posting_delete_request', kwargs={'pk': self.job_posting.id}))
+        
+        # Check that the response contains an error message
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'waap/job_posting_delete_request.html')
+        self.assertIn('error_message', response.context)
+    
+    def test_job_posting_delete_request_view_post(self):
+        """Test that a deletion email is sent when the owner requests deletion."""
+        # Create a session to simulate a logged-in user (the owner)
+        session = self.client.session
+        session['waap_authenticated_user_id'] = self.user.id
+        session.save()
+        
+        # Post to the job posting delete request page
+        response = self.client.post(reverse('waap:job_posting_delete_request', kwargs={'pk': self.job_posting.id}))
+        
+        # Check that the response is correct
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'waap/job_posting_delete_request_success.html')
+        
+        # Check that a deletion token was generated
+        self.job_posting.refresh_from_db()
+        self.assertIsNotNone(self.job_posting.deletion_token)
+        
+        # Check that an email was sent
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.user.email])
+        self.assertIn('WAAP Job Posting Deletion Link', mail.outbox[0].subject)
+    
+    def test_job_posting_delete_confirm_view_get(self):
+        """Test that the job posting delete confirm view loads correctly."""
+        # Set a deletion token
+        self.job_posting.deletion_token = 'test-deletion-token'
+        self.job_posting.save()
+        
+        # Get the job posting delete confirm page
+        response = self.client.get(reverse('waap:job_posting_delete_confirm', kwargs={'token': 'test-deletion-token'}))
+        
+        # Check that the response is correct
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'waap/job_posting_delete_confirm.html')
+        self.assertEqual(response.context['job_posting'], self.job_posting)
+    
+    def test_job_posting_delete_confirm_view_post(self):
+        """Test that a job posting can be deleted with a valid token."""
+        # Set a deletion token
+        self.job_posting.deletion_token = 'test-deletion-token'
+        self.job_posting.save()
+        
+        # Post to the job posting delete confirm page
+        response = self.client.post(reverse('waap:job_posting_delete_confirm', kwargs={'token': 'test-deletion-token'}))
+        
+        # Check that the job posting was deleted
+        self.assertEqual(JobPosting.objects.count(), 0)
+        
+        # Check that the response is correct
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'waap/job_posting_delete_success.html')
+        self.assertEqual(response.context['job_title'], 'Software Developer')
+    
+    def test_job_posting_delete_confirm_view_invalid_token(self):
+        """Test that an invalid token is handled correctly."""
+        # Post to the job posting delete confirm page with an invalid token
+        response = self.client.get(reverse('waap:job_posting_delete_confirm', kwargs={'token': 'invalid-token'}))
+        
+        # Check that the job posting was not deleted
+        self.assertEqual(JobPosting.objects.count(), 1)
+        
+        # Check that the response contains an error message
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'waap/job_posting_delete_confirm.html')
+        self.assertIn('error_message', response.context)

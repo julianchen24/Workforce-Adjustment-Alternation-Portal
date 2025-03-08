@@ -1,0 +1,33 @@
+{% extends 'waap/base.html' %}
+
+{% block title %}Request Deletion Link - WAAP{% endblock %}
+
+{% block content %}
+<div class="content-container">
+    <h2>Request Deletion Link</h2>
+    
+    {% if error_message %}
+    <div class="error-message">
+        {{ error_message }}
+    </div>
+    {% endif %}
+    
+    <div class="job-posting-summary">
+        <h3>{{ job_posting.job_title }}</h3>
+        <p>Department: {{ job_posting.department.name }}</p>
+        <p>Location: {{ job_posting.location }}</p>
+        <p>Posted on: {{ job_posting.posting_date|date:"F j, Y" }}</p>
+    </div>
+    
+    <div class="deletion-request-info">
+        <p>You are about to request a deletion link for this job posting. The link will be sent to the email address associated with your account ({{ user.email }}).</p>
+        <p>Once you receive the link, you can use it to permanently delete this job posting. This action cannot be undone.</p>
+        
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Send Deletion Link</button>
+            <a href="{% url 'waap:job_posting_detail' job_posting.id %}" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}
