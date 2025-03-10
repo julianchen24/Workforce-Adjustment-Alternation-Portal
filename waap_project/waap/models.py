@@ -69,13 +69,16 @@ class JobPosting(models.Model):
         ('TEMPORARY', 'Temporary'),
         ('CONTRACT', 'Contract'),
         ('CASUAL', 'Casual'),
+        ('EC-06', 'EC-06'),
+        ('IT-02', 'IT-02'),
+        ('PM-04', 'PM-04'),
     ]
     
     # Language profile choices
     LANGUAGE_PROFILE_CHOICES = [
         ('ENGLISH', 'English Essential'),
         ('FRENCH', 'French Essential'),
-        ('BILINGUAL', 'Bilingual'),
+        ('BILINGUAL', 'Bilingual (BBB/BBB)'),
         ('ENGLISH_PREFERRED', 'English Preferred'),
         ('FRENCH_PREFERRED', 'French Preferred'),
     ]
