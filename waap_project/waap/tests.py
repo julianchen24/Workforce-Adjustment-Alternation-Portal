@@ -61,12 +61,12 @@ class JobPostingModelTest(TestCase):
         
         # Create a job posting with explicit expiration date
         self.job_posting_explicit = JobPosting.objects.create(
-            job_title="Software Developer",
+            job_title="Program Officer",
             department=self.department,
             location="Ottawa, ON",
-            classification="PERMANENT",
+            classification="PM-04",
             alternation_criteria={"experience": "3+ years", "skills": ["Python", "Django"]},
-            language_profile="BILINGUAL",
+            language_profile="English Essential",
             contact_email="hr@example.com",
             expiration_date=timezone.now() + timedelta(days=15)
         )
@@ -74,11 +74,11 @@ class JobPostingModelTest(TestCase):
         # Create a job posting without explicit expiration date (should default to 30 days)
         tomorrow = timezone.now() + timedelta(days=1)
         self.job_posting_default = JobPosting(
-            job_title="Data Analyst",
+            job_title="Data Engineer",
             department=self.department,
             location="Toronto, ON",
-            classification="CONTRACT",
-            language_profile="ENGLISH",
+            classification="IT-02",
+            language_profile="English Essential",
             contact_email="recruiting@example.com"
         )
         # Save without expiration_date to test the default behavior
@@ -87,11 +87,11 @@ class JobPostingModelTest(TestCase):
     def test_job_posting_creation(self):
         """Test that job postings can be created with valid data."""
         self.assertEqual(JobPosting.objects.count(), 2)
-        self.assertEqual(self.job_posting_explicit.job_title, "Software Developer")
+        self.assertEqual(self.job_posting_explicit.job_title, "Program Officer")
         self.assertEqual(self.job_posting_explicit.department.name, "Information Technology")
         self.assertEqual(self.job_posting_explicit.location, "Ottawa, ON")
-        self.assertEqual(self.job_posting_explicit.classification, "PERMANENT")
-        self.assertEqual(self.job_posting_explicit.language_profile, "BILINGUAL")
+        self.assertEqual(self.job_posting_explicit.classification, "PM-04")
+        self.assertEqual(self.job_posting_explicit.language_profile, "English Essential")
         self.assertEqual(self.job_posting_explicit.contact_email, "hr@example.com")
         
         # Test JSON field
@@ -125,8 +125,8 @@ class JobPostingModelTest(TestCase):
             job_title="Expired Position",
             department=self.department,
             location="Montreal, QC",
-            classification="TEMPORARY",
-            language_profile="FRENCH",
+            classification="EC-06",
+            language_profile="Bilingual (BBB/BBB)",
             expiration_date=timezone.now() - timedelta(days=1)  # 1 day in the past
         )
         
@@ -420,11 +420,11 @@ class JobPostingCreationTest(TestCase):
         """Test that a job posting can be created by an authenticated user."""
         # Create a job posting
         response = self.client.post(reverse('waap:job_posting_create'), {
-            'job_title': 'Software Developer',
+            'job_title': 'Program Officer',
             'department': self.department.id,
             'location': 'Ottawa, ON',
-            'classification': 'PERMANENT',
-            'language_profile': 'BILINGUAL',
+            'classification': 'PM-04',
+            'language_profile': 'English Essential',
             'contact_email': 'hr@example.ca',
             'alternation_criteria': '{"experience": "3+ years", "skills": ["Python", "Django"]}',
         })
@@ -432,11 +432,11 @@ class JobPostingCreationTest(TestCase):
         # Check that the job posting was created
         self.assertEqual(JobPosting.objects.count(), 1)
         job_posting = JobPosting.objects.first()
-        self.assertEqual(job_posting.job_title, 'Software Developer')
+        self.assertEqual(job_posting.job_title, 'Program Officer')
         self.assertEqual(job_posting.department, self.department)
         self.assertEqual(job_posting.location, 'Ottawa, ON')
-        self.assertEqual(job_posting.classification, 'PERMANENT')
-        self.assertEqual(job_posting.language_profile, 'BILINGUAL')
+        self.assertEqual(job_posting.classification, 'PM-04')
+        self.assertEqual(job_posting.language_profile, 'English Essential')
         self.assertEqual(job_posting.contact_email, 'hr@example.ca')
         self.assertEqual(job_posting.alternation_criteria['experience'], '3+ years')
         self.assertIn('Python', job_posting.alternation_criteria['skills'])
@@ -452,11 +452,11 @@ class JobPostingCreationTest(TestCase):
         """Test that invalid form data is handled correctly."""
         # Try to create a job posting with missing required fields
         response = self.client.post(reverse('waap:job_posting_create'), {
-            'job_title': 'Software Developer',
+            'job_title': 'Program Officer',
             # Missing department
             'location': 'Ottawa, ON',
-            'classification': 'PERMANENT',
-            'language_profile': 'BILINGUAL',
+            'classification': 'PM-04',
+            'language_profile': 'English Essential',
         })
         
         # Check that the job posting was not created
@@ -471,11 +471,11 @@ class JobPostingCreationTest(TestCase):
         """Test that the job posting detail view loads correctly."""
         # Create a job posting
         job_posting = JobPosting.objects.create(
-            job_title='Software Developer',
+            job_title='Program Officer',
             department=self.department,
             location='Ottawa, ON',
-            classification='PERMANENT',
-            language_profile='BILINGUAL',
+            classification='PM-04',
+            language_profile='English Essential',
             contact_email='hr@example.ca',
             creator=self.user,
         )
@@ -499,38 +499,39 @@ class PublicJobPostingViewTest(TestCase):
         
         # Create departments
         self.dept1 = Department.objects.create(name="Information Technology")
-        self.dept2 = Department.objects.create(name="Human Resources")
+        self.dept2 = Department.objects.create(name="Statistics Canada")
+        self.dept3 = Department.objects.create(name="Employment and Social Development Canada")
         
         # Create job postings with different attributes for filtering tests
-        # Job posting 1: IT, Ottawa, Permanent, Bilingual
+        # Job posting 1: IT, Ottawa, PM-04, English Essential
         self.job1 = JobPosting.objects.create(
-            job_title="Software Developer",
+            job_title="Program Officer",
             department=self.dept1,
-            location="Ottawa, ON",
-            classification="PERMANENT",
-            language_profile="BILINGUAL",
+            location="National Capital Region",
+            classification="PM-04",
+            language_profile="English Essential",
             alternation_criteria={"type": "seeking", "skills": ["Python", "Django"]},
             expiration_date=timezone.now() + timedelta(days=30)
         )
         
-        # Job posting 2: IT, Toronto, Contract, English
+        # Job posting 2: IT, Toronto, IT-02, English Essential
         self.job2 = JobPosting.objects.create(
-            job_title="Data Analyst",
-            department=self.dept1,
+            job_title="Data Engineer",
+            department=self.dept2,
             location="Toronto, ON",
-            classification="CONTRACT",
-            language_profile="ENGLISH",
+            classification="IT-02",
+            language_profile="English Essential",
             alternation_criteria={"type": "offering", "skills": ["SQL", "Python"]},
             expiration_date=timezone.now() + timedelta(days=30)
         )
         
-        # Job posting 3: HR, Ottawa, Temporary, French
+        # Job posting 3: HR, Ottawa, EC-06, Bilingual (BBB/BBB)
         self.job3 = JobPosting.objects.create(
-            job_title="HR Specialist",
-            department=self.dept2,
+            job_title="Policy Analyst",
+            department=self.dept3,
             location="Ottawa, ON",
-            classification="TEMPORARY",
-            language_profile="FRENCH",
+            classification="EC-06",
+            language_profile="Bilingual (BBB/BBB)",
             alternation_criteria={"type": "seeking", "skills": ["Recruitment", "Onboarding"]},
             expiration_date=timezone.now() + timedelta(days=30)
         )
@@ -576,37 +577,37 @@ class PublicJobPostingViewTest(TestCase):
         
         # Parse the JSON response
         data = response.json()
-        self.assertEqual(data['count'], 2)  # Should include job1 and job2
+        self.assertEqual(data['count'], 1)  # Should include only job1
         self.assertIn('html', data)
         
         # Check that the HTML contains the expected job titles
-        self.assertIn('Software Developer', data['html'])
-        self.assertIn('Data Analyst', data['html'])
-        self.assertNotIn('HR Specialist', data['html'])
+        self.assertIn('Program Officer', data['html'])
+        self.assertNotIn('Data Engineer', data['html'])
+        self.assertNotIn('Policy Analyst', data['html'])
     
     def test_ajax_filter_location(self):
         """Test filtering by location."""
         response = self.client.get(
             self.public_url,
-            {'location': 'Ottawa, ON'},
+            {'location': 'National Capital Region'},
             HTTP_X_REQUESTED_WITH='XMLHttpRequest'
         )
         self.assertEqual(response.status_code, 200)
         
         # Parse the JSON response
         data = response.json()
-        self.assertEqual(data['count'], 2)  # Should include job1 and job3
+        self.assertEqual(data['count'], 1)  # Should include only job1
         
         # Check that the HTML contains the expected job titles
-        self.assertIn('Software Developer', data['html'])
-        self.assertNotIn('Data Analyst', data['html'])
-        self.assertIn('HR Specialist', data['html'])
+        self.assertIn('Program Officer', data['html'])
+        self.assertNotIn('Data Engineer', data['html'])
+        self.assertNotIn('Policy Analyst', data['html'])
     
     def test_ajax_filter_classification(self):
         """Test filtering by classification."""
         response = self.client.get(
             self.public_url,
-            {'classification': 'PERMANENT'},
+            {'classification': 'PM-04'},
             HTTP_X_REQUESTED_WITH='XMLHttpRequest'
         )
         self.assertEqual(response.status_code, 200)
@@ -616,27 +617,27 @@ class PublicJobPostingViewTest(TestCase):
         self.assertEqual(data['count'], 1)  # Should include only job1
         
         # Check that the HTML contains the expected job title
-        self.assertIn('Software Developer', data['html'])
-        self.assertNotIn('Data Analyst', data['html'])
-        self.assertNotIn('HR Specialist', data['html'])
+        self.assertIn('Program Officer', data['html'])
+        self.assertNotIn('Data Engineer', data['html'])
+        self.assertNotIn('Policy Analyst', data['html'])
     
     def test_ajax_filter_language_profile(self):
         """Test filtering by language profile."""
         response = self.client.get(
             self.public_url,
-            {'language_profile': 'BILINGUAL'},
+            {'language_profile': 'ENGLISH'},
             HTTP_X_REQUESTED_WITH='XMLHttpRequest'
         )
         self.assertEqual(response.status_code, 200)
         
         # Parse the JSON response
         data = response.json()
-        self.assertEqual(data['count'], 1)  # Should include only job1
+        self.assertEqual(data['count'], 2)  # Should include job1 and job2
         
-        # Check that the HTML contains the expected job title
-        self.assertIn('Software Developer', data['html'])
-        self.assertNotIn('Data Analyst', data['html'])
-        self.assertNotIn('HR Specialist', data['html'])
+        # Check that the HTML contains the expected job titles
+        self.assertIn('Program Officer', data['html'])
+        self.assertIn('Data Engineer', data['html'])
+        self.assertNotIn('Policy Analyst', data['html'])
     
     def test_ajax_filter_alternation_type(self):
         """Test filtering by alternation type."""
@@ -652,9 +653,9 @@ class PublicJobPostingViewTest(TestCase):
         self.assertEqual(data['count'], 2)  # Should include job1 and job3
         
         # Check that the HTML contains the expected job titles
-        self.assertIn('Software Developer', data['html'])
-        self.assertNotIn('Data Analyst', data['html'])
-        self.assertIn('HR Specialist', data['html'])
+        self.assertIn('Program Officer', data['html'])
+        self.assertNotIn('Data Engineer', data['html'])
+        self.assertIn('Policy Analyst', data['html'])
     
     def test_ajax_filter_date_posted(self):
         """Test filtering by date posted."""
@@ -663,8 +664,8 @@ class PublicJobPostingViewTest(TestCase):
             job_title="Old Position",
             department=self.dept1,
             location="Vancouver, BC",
-            classification="PERMANENT",
-            language_profile="ENGLISH",
+            classification="PM-04",
+            language_profile="English Essential",
             expiration_date=timezone.now() + timedelta(days=20)
         )
         
@@ -685,9 +686,9 @@ class PublicJobPostingViewTest(TestCase):
         self.assertEqual(data['count'], 3)  # Should include job1, job2, and job3, but not old_job
         
         # Check that the HTML contains the expected job titles
-        self.assertIn('Software Developer', data['html'])
-        self.assertIn('Data Analyst', data['html'])
-        self.assertIn('HR Specialist', data['html'])
+        self.assertIn('Program Officer', data['html'])
+        self.assertIn('Data Engineer', data['html'])
+        self.assertIn('Policy Analyst', data['html'])
         self.assertNotIn('Old Position', data['html'])
     
     def test_ajax_filter_multiple_criteria(self):
@@ -696,8 +697,8 @@ class PublicJobPostingViewTest(TestCase):
             self.public_url,
             {
                 'department': self.dept1.id,
-                'classification': 'PERMANENT',
-                'language_profile': 'BILINGUAL'
+                'classification': 'PM-04',
+                'language_profile': 'English Essential'
             },
             HTTP_X_REQUESTED_WITH='XMLHttpRequest'
         )
@@ -708,9 +709,9 @@ class PublicJobPostingViewTest(TestCase):
         self.assertEqual(data['count'], 1)  # Should include only job1
         
         # Check that the HTML contains the expected job title
-        self.assertIn('Software Developer', data['html'])
-        self.assertNotIn('Data Analyst', data['html'])
-        self.assertNotIn('HR Specialist', data['html'])
+        self.assertIn('Program Officer', data['html'])
+        self.assertNotIn('Data Engineer', data['html'])
+        self.assertNotIn('Policy Analyst', data['html'])
     
     def test_ajax_view_mode_table(self):
         """Test switching to table view mode."""
@@ -730,9 +731,9 @@ class PublicJobPostingViewTest(TestCase):
         self.assertIn('<tbody>', data['html'])
         
         # Check that all job titles are included
-        self.assertIn('Software Developer', data['html'])
-        self.assertIn('Data Analyst', data['html'])
-        self.assertIn('HR Specialist', data['html'])
+        self.assertIn('Program Officer', data['html'])
+        self.assertIn('Data Engineer', data['html'])
+        self.assertIn('Policy Analyst', data['html'])
     
     def test_ajax_no_results(self):
         """Test when no job postings match the filter criteria."""
@@ -767,11 +768,11 @@ class ContactFormTest(TestCase):
         
         # Create a job posting with contact email
         self.job_posting = JobPosting.objects.create(
-            job_title="Software Developer",
+            job_title="Program Officer",
             department=self.department,
             location="Ottawa, ON",
-            classification="PERMANENT",
-            language_profile="BILINGUAL",
+            classification="PM-04",
+            language_profile="English Essential",
             contact_email="hr@example.ca",
             expiration_date=timezone.now() + timedelta(days=30)
         )
@@ -785,11 +786,11 @@ class ContactFormTest(TestCase):
         )
         
         self.job_posting_with_creator = JobPosting.objects.create(
-            job_title="Data Analyst",
+            job_title="Data Engineer",
             department=self.department,
             location="Toronto, ON",
-            classification="CONTRACT",
-            language_profile="ENGLISH",
+            classification="IT-02",
+            language_profile="English Essential",
             creator=self.user,
             expiration_date=timezone.now() + timedelta(days=30)
         )
@@ -799,8 +800,8 @@ class ContactFormTest(TestCase):
             job_title="Expired Position",
             department=self.department,
             location="Montreal, QC",
-            classification="TEMPORARY",
-            language_profile="FRENCH",
+            classification="EC-06",
+            language_profile="Bilingual (BBB/BBB)",
             contact_email="expired@example.ca",
             expiration_date=timezone.now() - timedelta(days=1)
         )
@@ -976,7 +977,7 @@ class JobPostingDeletionTest(TestCase):
             first_name="Other",
             last_name="User",
             email="other.user@government.ca",
-            department="Human Resources"
+            department="Employment and Social Development Canada"
         )
         
         # Create a department for job posting
@@ -984,11 +985,11 @@ class JobPostingDeletionTest(TestCase):
         
         # Create a job posting
         self.job_posting = JobPosting.objects.create(
-            job_title='Software Developer',
+            job_title='Program Officer',
             department=self.department,
             location='Ottawa, ON',
-            classification='PERMANENT',
-            language_profile='BILINGUAL',
+            classification='PM-04',
+            language_profile='English Essential',
             contact_email='hr@example.ca',
             creator=self.user,
         )
@@ -1077,7 +1078,7 @@ class JobPostingDeletionTest(TestCase):
         # Check that the response is correct
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'waap/job_posting_delete_success.html')
-        self.assertEqual(response.context['job_title'], 'Software Developer')
+        self.assertEqual(response.context['job_title'], 'Program Officer')
     
     def test_job_posting_delete_confirm_view_invalid_token(self):
         """Test that an invalid token is handled correctly."""
@@ -1114,8 +1115,8 @@ class ExpireJobPostingsCommandTest(TestCase):
             job_title="Active Position",
             department=self.department,
             location="Ottawa, ON",
-            classification="PERMANENT",
-            language_profile="BILINGUAL",
+            classification="PM-04",
+            language_profile="English Essential",
             contact_email="active@example.ca",
             creator=self.user,
             expiration_date=timezone.now() + timedelta(days=15)
@@ -1126,7 +1127,7 @@ class ExpireJobPostingsCommandTest(TestCase):
             job_title="Expired Position",
             department=self.department,
             location="Toronto, ON",
-            classification="CONTRACT",
+            classification="IT-02",
             language_profile="ENGLISH",
             contact_email="expired@example.ca",
             creator=self.user,
@@ -1138,8 +1139,8 @@ class ExpireJobPostingsCommandTest(TestCase):
             job_title="Already Anonymized",
             department=self.department,
             location="Montreal, QC",
-            classification="TEMPORARY",
-            language_profile="FRENCH",
+            classification="EC-06",
+            language_profile="Bilingual (BBB/BBB)",
             contact_email=None,  # Already anonymized
             creator=self.user,
             expiration_date=timezone.now() - timedelta(days=10)

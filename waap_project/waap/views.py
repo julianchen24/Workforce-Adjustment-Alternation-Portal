@@ -485,7 +485,13 @@ class PublicJobPostingView(View):
             queryset = queryset.filter(classification=classification)
         
         if language_profile:
-            queryset = queryset.filter(language_profile=language_profile)
+            # Handle both database values and display values
+            if language_profile == 'ENGLISH':
+                queryset = queryset.filter(language_profile__in=['ENGLISH', 'English Essential'])
+            elif language_profile == 'English Essential':
+                queryset = queryset.filter(language_profile__in=['ENGLISH', 'English Essential'])
+            else:
+                queryset = queryset.filter(language_profile=language_profile)
         
         # Filter by alternation type (seeking/offering)
         if alternation_type:
