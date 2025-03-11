@@ -11,7 +11,7 @@ from django.conf import settings
 from django.views.decorators.http import require_http_methods
 from django.db.models import Q
 
-from .models import WaapUser, OneTimeToken, Department, JobPosting, ContactMessage
+from .models import WaapUser, OneTimeToken, Department, JobPosting, ContactMessage, CLASSIFICATION_CHOICES
 from .forms import ContactForm
 import re
 import json
@@ -147,12 +147,27 @@ def login_verify(request, token):
     # Find or create the user
     try:
         user = WaapUser.objects.get(email=token_obj.email)
+        # Check if the user has completed their profile
+        if not user.is_profile_completed:
+            # Store the user ID in the session
+            request.session[AUTH_SESSION_KEY] = user.id
+            # Redirect to the profile completion page
+            return redirect('waap:user_registration')
     except WaapUser.DoesNotExist:
-        # In a real application, you might want to redirect to a registration page
-        # or create a placeholder user
-        return render(request, 'waap/login_error.html', {
-            'error_message': 'No user found with this email address.'
-        })
+        # Create a temporary user with just the email
+        user = WaapUser(
+            email=token_obj.email,
+            first_name="",
+            last_name="",
+            is_profile_completed=False
+        )
+        user.save()
+        
+        # Store the user ID in the session
+        request.session[AUTH_SESSION_KEY] = user.id
+        
+        # Redirect to the registration page
+        return redirect('waap:user_registration')
     
     # Set the user as authenticated in the session
     request.session[AUTH_SESSION_KEY] = user.id
@@ -172,6 +187,121 @@ def logout(request):
     
     return redirect('waap:public_job_postings')
 
+@login_required
+def user_registration(request):
+    """View for completing user registration after email verification."""
+    # Get the authenticated user
+    user = get_authenticated_user(request)
+    if not user:
+        return redirect('waap:login_request')
+    
+    # Get all departments for the form
+    departments = Department.objects.all().order_by('name')
+    
+    if request.method == 'POST':
+        # Process the form submission
+        first_name = request.POST.get('first_name')
+        last_name = request.POST.get('last_name')
+        department_id = request.POST.get('department')
+        classification = request.POST.get('classification')
+        
+        # Validate required fields
+        if not (first_name and last_name and department_id and classification):
+            return render(request, 'waap/user_registration.html', {
+                'error_message': 'Please fill in all required fields.',
+                'email': user.email,
+                'departments': departments,
+                'classification_choices': CLASSIFICATION_CHOICES,
+            })
+        
+        # Get the department
+        try:
+            department = Department.objects.get(id=department_id)
+        except Department.DoesNotExist:
+            return render(request, 'waap/user_registration.html', {
+                'error_message': 'Invalid department selected.',
+                'email': user.email,
+                'departments': departments,
+                'classification_choices': CLASSIFICATION_CHOICES,
+            })
+        
+        # Update the user
+        user.first_name = first_name
+        user.last_name = last_name
+        user.department = department
+        user.classification = classification
+        user.is_profile_completed = True
+        user.save()
+        
+        # Redirect to the success page
+        return render(request, 'waap/login_success.html', {'user': user})
+    
+    # Render the form for GET requests
+    return render(request, 'waap/user_registration.html', {
+        'email': user.email,
+        'departments': departments,
+        'classification_choices': CLASSIFICATION_CHOICES,
+    })
+
+@login_required
+def user_profile_edit(request):
+    """View for editing user profile."""
+    # Get the authenticated user
+    user = get_authenticated_user(request)
+    if not user:
+        return redirect('waap:login_request')
+    
+    # Get all departments for the form
+    departments = Department.objects.all().order_by('name')
+    
+    if request.method == 'POST':
+        # Process the form submission
+        first_name = request.POST.get('first_name')
+        last_name = request.POST.get('last_name')
+        department_id = request.POST.get('department')
+        classification = request.POST.get('classification')
+        
+        # Validate required fields
+        if not (first_name and last_name and department_id and classification):
+            return render(request, 'waap/user_profile_edit.html', {
+                'error_message': 'Please fill in all required fields.',
+                'user': user,
+                'departments': departments,
+                'classification_choices': CLASSIFICATION_CHOICES,
+            })
+        
+        # Get the department
+        try:
+            department = Department.objects.get(id=department_id)
+        except Department.DoesNotExist:
+            return render(request, 'waap/user_profile_edit.html', {
+                'error_message': 'Invalid department selected.',
+                'user': user,
+                'departments': departments,
+                'classification_choices': CLASSIFICATION_CHOICES,
+            })
+        
+        # Update the user
+        user.first_name = first_name
+        user.last_name = last_name
+        user.department = department
+        user.classification = classification
+        user.save()
+        
+        # Render the form with success message
+        return render(request, 'waap/user_profile_edit.html', {
+            'success_message': 'Your profile has been updated successfully.',
+            'user': user,
+            'departments': departments,
+            'classification_choices': CLASSIFICATION_CHOICES,
+        })
+    
+    # Render the form for GET requests
+    return render(request, 'waap/user_profile_edit.html', {
+        'user': user,
+        'departments': departments,
+        'classification_choices': CLASSIFICATION_CHOICES,
+    })
 
 @login_required
 def job_posting_create(request):
@@ -202,7 +332,7 @@ def job_posting_create(request):
                 return render(request, 'waap/job_posting_create.html', {
                     'error_message': 'Please fill in all required fields.',
                     'departments': departments,
-                    'classification_choices': JobPosting.CLASSIFICATION_CHOICES,
+                    'classification_choices': CLASSIFICATION_CHOICES,
                     'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
                 })
             
@@ -213,7 +343,7 @@ def job_posting_create(request):
                 return render(request, 'waap/job_posting_create.html', {
                     'error_message': 'Invalid department selected.',
                     'departments': departments,
-                    'classification_choices': JobPosting.CLASSIFICATION_CHOICES,
+                    'classification_choices': CLASSIFICATION_CHOICES,
                     'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
                 })
             
@@ -228,7 +358,7 @@ def job_posting_create(request):
                     return render(request, 'waap/job_posting_create.html', {
                         'error_message': 'Invalid expiration date format.',
                         'departments': departments,
-                        'classification_choices': JobPosting.CLASSIFICATION_CHOICES,
+                        'classification_choices': CLASSIFICATION_CHOICES,
                         'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
                     })
             
@@ -241,7 +371,7 @@ def job_posting_create(request):
                     return render(request, 'waap/job_posting_create.html', {
                         'error_message': 'Invalid JSON format for alternation criteria.',
                         'departments': departments,
-                        'classification_choices': JobPosting.CLASSIFICATION_CHOICES,
+                        'classification_choices': CLASSIFICATION_CHOICES,
                         'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
                     })
             
@@ -270,14 +400,14 @@ def job_posting_create(request):
             return render(request, 'waap/job_posting_create.html', {
                 'error_message': f'An error occurred: {str(e)}',
                 'departments': departments,
-                'classification_choices': JobPosting.CLASSIFICATION_CHOICES,
+                'classification_choices': CLASSIFICATION_CHOICES,
                 'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
             })
     
     # Render the form for GET requests
     return render(request, 'waap/job_posting_create.html', {
         'departments': departments,
-        'classification_choices': JobPosting.CLASSIFICATION_CHOICES,
+        'classification_choices': CLASSIFICATION_CHOICES,
         'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
     })
 
@@ -452,7 +582,7 @@ class PublicJobPostingView(View):
             'job_postings': job_postings,
             'departments': departments,
             'locations': locations,
-            'classification_choices': JobPosting.CLASSIFICATION_CHOICES,
+            'classification_choices': CLASSIFICATION_CHOICES,
             'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
             'view_mode': 'card',  # Default view mode
         })

@@ -1,0 +1,73 @@
+{% extends 'waap/base.html' %}
+
+{% block title %}Complete Your Profile - WAAP{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0">Complete Your Profile</h2>
+                </div>
+                <div class="card-body">
+                    <p class="lead">Welcome to the Workforce Adjustment Alternation Portal. Please complete your profile information below.</p>
+                    
+                    {% if error_message %}
+                    <div class="alert alert-danger">
+                        {{ error_message }}
+                    </div>
+                    {% endif %}
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="form-group mb-3">
+                            <label for="email">Government Email:</label>
+                            <input type="email" id="email" name="email" class="form-control" 
+                                   value="{{ email }}" readonly>
+                            <small class="form-text text-muted">Your email address is used for login and cannot be changed.</small>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="first_name">First Name:</label>
+                            <input type="text" id="first_name" name="first_name" class="form-control" 
+                                   required>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="last_name">Last Name:</label>
+                            <input type="text" id="last_name" name="last_name" class="form-control" 
+                                   required>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="department">Department:</label>
+                            <select id="department" name="department" class="form-control" required>
+                                <option value="">-- Select Department --</option>
+                                {% for dept in departments %}
+                                <option value="{{ dept.id }}">{{ dept.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="classification">Substantive Classification:</label>
+                            <select id="classification" name="classification" class="form-control" required>
+                                <option value="">-- Select Classification --</option>
+                                {% for code, name in classification_choices %}
+                                <option value="{{ code }}">{{ name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="form-group text-center mt-4">
+                            <button type="submit" class="btn btn-primary">Complete Registration</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

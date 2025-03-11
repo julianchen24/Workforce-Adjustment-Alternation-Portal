@@ -11,6 +11,8 @@ urlpatterns = [
     path('login/', views.login_request, name='login_request'),
     path('login/verify/<str:token>/', views.login_verify, name='login_verify'),
     path('logout/', views.logout, name='logout'),
+    path('register/', views.user_registration, name='user_registration'),
+    path('profile/edit/', views.user_profile_edit, name='user_profile_edit'),
     
     # Job Posting URLs
     path('job-postings/', views.JobPostingListView.as_view(), name='job_posting_list'),

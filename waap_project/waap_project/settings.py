@@ -25,7 +25,7 @@ SECRET_KEY = "django-insecure-6y6@r4jc6no)pol^5--!@ix)#cat642&nsbk7yx-l$2o6!dj2u
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.0.41']
 
 
 # Application definition
@@ -38,13 +38,13 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "waap",
-    "captcha",
+    "django_recaptcha",
 ]
 
 # reCAPTCHA settings
 RECAPTCHA_PUBLIC_KEY = '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'  # Test key
 RECAPTCHA_PRIVATE_KEY = '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe'  # Test key
-SILENCED_SYSTEM_CHECKS = ['captcha.recaptcha_test_key_error']  # Silence the warning about using test keys
+SILENCED_SYSTEM_CHECKS = ['django_recaptcha.recaptcha_test_key_error']  # Silence the warning about using test keys
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -90,6 +90,7 @@ DATABASES = {
         "PORT": "5432",
     }
 }
+
 
 
 # Password validation
