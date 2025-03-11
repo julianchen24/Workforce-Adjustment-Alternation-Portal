@@ -38,10 +38,16 @@
             <label for="classification">Classification:</label>
             <select id="classification" name="classification" required>
                 <option value="">Select a classification</option>
-                {% for value, label in classification_choices %}
-                <option value="{{ value }}">{{ label }}</option>
+                {% for classification in classifications %}
+                <option value="{{ classification.id }}">{{ classification.code }} - {{ classification.name }}</option>
                 {% endfor %}
             </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="level">Classification Level (0-100):</label>
+            <input type="number" id="level" name="level" min="0" max="100" required>
+            <small>Enter a number between 0 and 100 (0 for DEV, e.g., 7 for EC-07)</small>
         </div>
         
         <div class="form-group">

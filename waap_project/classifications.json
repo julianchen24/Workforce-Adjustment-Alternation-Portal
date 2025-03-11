@@ -1,0 +1,8 @@
+[
+  {"code": "EC", "name": "Economist"},
+  {"code": "PM", "name": "Program Management"},
+  {"code": "SG-SRE", "name": "Scientific Research"},
+  {"code": "TR", "name": "Translation"},
+  {"code": "AS", "name": "Administrative Services"},
+  {"code": "CR", "name": "Clerical and Regulatory"}
+]

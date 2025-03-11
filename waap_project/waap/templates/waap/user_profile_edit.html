@@ -61,10 +61,16 @@
                             <label for="classification">Substantive Classification:</label>
                             <select id="classification" name="classification" class="form-control" required>
                                 <option value="">-- Select Classification --</option>
-                                {% for code, name in classification_choices %}
-                                <option value="{{ code }}" {% if user.classification == code %}selected{% endif %}>{{ name }}</option>
+                                {% for classification in classifications %}
+                                <option value="{{ classification.id }}" {% if user.classification_id == classification.id %}selected{% endif %}>{{ classification.code }} - {{ classification.name }}</option>
                                 {% endfor %}
                             </select>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="level">Classification Level (0-100):</label>
+                            <input type="number" id="level" name="level" class="form-control" min="0" max="100" value="{{ user.level }}" required>
+                            <small class="form-text text-muted">Enter a number between 0 and 100 (0 for DEV, e.g., 7 for EC-07)</small>
                         </div>
                         
                         <div class="form-group text-center mt-4">

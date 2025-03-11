@@ -11,7 +11,7 @@ from django.conf import settings
 from django.views.decorators.http import require_http_methods
 from django.db.models import Q
 
-from .models import WaapUser, OneTimeToken, Department, JobPosting, ContactMessage, CLASSIFICATION_CHOICES
+from .models import WaapUser, OneTimeToken, Department, JobPosting, ContactMessage, Classification
 from .forms import ContactForm
 import re
 import json
@@ -195,34 +195,50 @@ def user_registration(request):
     if not user:
         return redirect('waap:login_request')
     
-    # Get all departments for the form
+    # Get all departments and classifications for the form
     departments = Department.objects.all().order_by('name')
+    classifications = Classification.objects.all().order_by('code')
     
     if request.method == 'POST':
         # Process the form submission
         first_name = request.POST.get('first_name')
         last_name = request.POST.get('last_name')
         department_id = request.POST.get('department')
-        classification = request.POST.get('classification')
+        classification_id = request.POST.get('classification')
+        level = request.POST.get('level')
         
         # Validate required fields
-        if not (first_name and last_name and department_id and classification):
+        if not (first_name and last_name and department_id and classification_id and level):
             return render(request, 'waap/user_registration.html', {
                 'error_message': 'Please fill in all required fields.',
                 'email': user.email,
                 'departments': departments,
-                'classification_choices': CLASSIFICATION_CHOICES,
+                'classifications': classifications,
             })
         
-        # Get the department
+        # Get the department and classification
         try:
             department = Department.objects.get(id=department_id)
-        except Department.DoesNotExist:
+            classification = Classification.objects.get(id=classification_id)
+        except (Department.DoesNotExist, Classification.DoesNotExist):
             return render(request, 'waap/user_registration.html', {
-                'error_message': 'Invalid department selected.',
+                'error_message': 'Invalid department or classification selected.',
                 'email': user.email,
                 'departments': departments,
-                'classification_choices': CLASSIFICATION_CHOICES,
+                'classifications': classifications,
+            })
+        
+        # Validate level
+        try:
+            level = int(level)
+            if level < 0 or level > 100:
+                raise ValueError("Level must be between 0 and 100")
+        except ValueError:
+            return render(request, 'waap/user_registration.html', {
+                'error_message': 'Level must be a number between 0 and 100.',
+                'email': user.email,
+                'departments': departments,
+                'classifications': classifications,
             })
         
         # Update the user
@@ -230,6 +246,7 @@ def user_registration(request):
         user.last_name = last_name
         user.department = department
         user.classification = classification
+        user.level = level
         user.is_profile_completed = True
         user.save()
         
@@ -240,7 +257,7 @@ def user_registration(request):
     return render(request, 'waap/user_registration.html', {
         'email': user.email,
         'departments': departments,
-        'classification_choices': CLASSIFICATION_CHOICES,
+        'classifications': classifications,
     })
 
 @login_required
@@ -251,34 +268,50 @@ def user_profile_edit(request):
     if not user:
         return redirect('waap:login_request')
     
-    # Get all departments for the form
+    # Get all departments and classifications for the form
     departments = Department.objects.all().order_by('name')
+    classifications = Classification.objects.all().order_by('code')
     
     if request.method == 'POST':
         # Process the form submission
         first_name = request.POST.get('first_name')
         last_name = request.POST.get('last_name')
         department_id = request.POST.get('department')
-        classification = request.POST.get('classification')
+        classification_id = request.POST.get('classification')
+        level = request.POST.get('level')
         
         # Validate required fields
-        if not (first_name and last_name and department_id and classification):
+        if not (first_name and last_name and department_id and classification_id and level):
             return render(request, 'waap/user_profile_edit.html', {
                 'error_message': 'Please fill in all required fields.',
                 'user': user,
                 'departments': departments,
-                'classification_choices': CLASSIFICATION_CHOICES,
+                'classifications': classifications,
             })
         
-        # Get the department
+        # Get the department and classification
         try:
             department = Department.objects.get(id=department_id)
-        except Department.DoesNotExist:
+            classification = Classification.objects.get(id=classification_id)
+        except (Department.DoesNotExist, Classification.DoesNotExist):
             return render(request, 'waap/user_profile_edit.html', {
-                'error_message': 'Invalid department selected.',
+                'error_message': 'Invalid department or classification selected.',
                 'user': user,
                 'departments': departments,
-                'classification_choices': CLASSIFICATION_CHOICES,
+                'classifications': classifications,
+            })
+        
+        # Validate level
+        try:
+            level = int(level)
+            if level < 0 or level > 100:
+                raise ValueError("Level must be between 0 and 100")
+        except ValueError:
+            return render(request, 'waap/user_profile_edit.html', {
+                'error_message': 'Level must be a number between 0 and 100.',
+                'user': user,
+                'departments': departments,
+                'classifications': classifications,
             })
         
         # Update the user
@@ -286,6 +319,7 @@ def user_profile_edit(request):
         user.last_name = last_name
         user.department = department
         user.classification = classification
+        user.level = level
         user.save()
         
         # Render the form with success message
@@ -293,14 +327,14 @@ def user_profile_edit(request):
             'success_message': 'Your profile has been updated successfully.',
             'user': user,
             'departments': departments,
-            'classification_choices': CLASSIFICATION_CHOICES,
+            'classifications': classifications,
         })
     
     # Render the form for GET requests
     return render(request, 'waap/user_profile_edit.html', {
         'user': user,
         'departments': departments,
-        'classification_choices': CLASSIFICATION_CHOICES,
+        'classifications': classifications,
     })
 
 @login_required
@@ -311,8 +345,9 @@ def job_posting_create(request):
     if not user:
         return redirect('waap:login_request')
     
-    # Get all departments for the form
+    # Get all departments and classifications for the form
     departments = Department.objects.all()
+    classifications = Classification.objects.all().order_by('code')
     
     if request.method == 'POST':
         # Process the form submission
@@ -321,29 +356,44 @@ def job_posting_create(request):
             job_title = request.POST.get('job_title')
             department_id = request.POST.get('department')
             location = request.POST.get('location')
-            classification = request.POST.get('classification')
+            classification_id = request.POST.get('classification')
+            level = request.POST.get('level')
             language_profile = request.POST.get('language_profile')
             contact_email = request.POST.get('contact_email')
             expiration_date_str = request.POST.get('expiration_date')
             alternation_criteria_str = request.POST.get('alternation_criteria')
             
             # Validate required fields
-            if not (job_title and department_id and location and classification and language_profile):
+            if not (job_title and department_id and location and classification_id and level and language_profile):
                 return render(request, 'waap/job_posting_create.html', {
                     'error_message': 'Please fill in all required fields.',
                     'departments': departments,
-                    'classification_choices': CLASSIFICATION_CHOICES,
+                    'classifications': classifications,
                     'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
                 })
             
-            # Get the department
+            # Get the department and classification
             try:
                 department = Department.objects.get(id=department_id)
-            except Department.DoesNotExist:
+                classification = Classification.objects.get(id=classification_id)
+            except (Department.DoesNotExist, Classification.DoesNotExist):
                 return render(request, 'waap/job_posting_create.html', {
-                    'error_message': 'Invalid department selected.',
+                    'error_message': 'Invalid department or classification selected.',
                     'departments': departments,
-                    'classification_choices': CLASSIFICATION_CHOICES,
+                    'classifications': classifications,
+                    'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
+                })
+            
+            # Validate level
+            try:
+                level = int(level)
+                if level < 0 or level > 100:
+                    raise ValueError("Level must be between 0 and 100")
+            except ValueError:
+                return render(request, 'waap/job_posting_create.html', {
+                    'error_message': 'Level must be a number between 0 and 100.',
+                    'departments': departments,
+                    'classifications': classifications,
                     'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
                 })
             
@@ -358,7 +408,7 @@ def job_posting_create(request):
                     return render(request, 'waap/job_posting_create.html', {
                         'error_message': 'Invalid expiration date format.',
                         'departments': departments,
-                        'classification_choices': CLASSIFICATION_CHOICES,
+                        'classifications': classifications,
                         'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
                     })
             
@@ -371,7 +421,7 @@ def job_posting_create(request):
                     return render(request, 'waap/job_posting_create.html', {
                         'error_message': 'Invalid JSON format for alternation criteria.',
                         'departments': departments,
-                        'classification_choices': CLASSIFICATION_CHOICES,
+                        'classifications': classifications,
                         'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
                     })
             
@@ -381,6 +431,7 @@ def job_posting_create(request):
                 department=department,
                 location=location,
                 classification=classification,
+                level=level,
                 language_profile=language_profile,
                 contact_email=contact_email,
                 alternation_criteria=alternation_criteria,
@@ -400,14 +451,14 @@ def job_posting_create(request):
             return render(request, 'waap/job_posting_create.html', {
                 'error_message': f'An error occurred: {str(e)}',
                 'departments': departments,
-                'classification_choices': CLASSIFICATION_CHOICES,
+                'classifications': classifications,
                 'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
             })
     
     # Render the form for GET requests
     return render(request, 'waap/job_posting_create.html', {
         'departments': departments,
-        'classification_choices': CLASSIFICATION_CHOICES,
+        'classifications': classifications,
         'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
     })
 
@@ -573,6 +624,7 @@ class PublicJobPostingView(View):
         
         # Get filter options
         departments = Department.objects.all().order_by('name')
+        classifications = Classification.objects.all().order_by('code')
         locations = JobPosting.objects.filter(
             expiration_date__gte=timezone.now()
         ).values_list('location', flat=True).distinct().order_by('location')
@@ -582,7 +634,7 @@ class PublicJobPostingView(View):
             'job_postings': job_postings,
             'departments': departments,
             'locations': locations,
-            'classification_choices': CLASSIFICATION_CHOICES,
+            'classifications': classifications,
             'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
             'view_mode': 'card',  # Default view mode
         })

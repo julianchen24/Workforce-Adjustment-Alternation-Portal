@@ -5,17 +5,6 @@ import uuid
 import secrets
 import hashlib
 
-# Shared choices
-CLASSIFICATION_CHOICES = [
-    ('PERMANENT', 'Permanent'),
-    ('TEMPORARY', 'Temporary'),
-    ('CONTRACT', 'Contract'),
-    ('CASUAL', 'Casual'),
-    ('EC-06', 'EC-06'),
-    ('IT-02', 'IT-02'),
-    ('PM-04', 'PM-04'),
-]
-
 class OneTimeToken(models.Model):
     """Model for one-time login tokens."""
     token = models.CharField(max_length=100, unique=True)
@@ -51,6 +40,15 @@ class OneTimeToken(models.Model):
         return token
 
 
+class Classification(models.Model):
+    """Classification model for employee groups."""
+    code = models.CharField(max_length=10, unique=True)
+    name = models.CharField(max_length=100)
+    
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+
 class Department(models.Model):
     """Department model for job postings."""
     name = models.CharField(max_length=100, unique=True)
@@ -65,7 +63,8 @@ class WaapUser(models.Model):
     last_name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, related_name='users')
-    classification = models.CharField(max_length=20, choices=CLASSIFICATION_CHOICES, null=True, blank=True)
+    classification = models.ForeignKey(Classification, on_delete=models.SET_NULL, null=True, blank=True, related_name='users')
+    level = models.PositiveIntegerField(null=True, blank=True, help_text="Classification level (0-100, where 0 is DEV)")
     is_profile_completed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -96,7 +95,8 @@ class JobPosting(models.Model):
     job_title = models.CharField(max_length=200)
     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='job_postings')
     location = models.CharField(max_length=100)
-    classification = models.CharField(max_length=20, choices=CLASSIFICATION_CHOICES)
+    classification = models.ForeignKey(Classification, on_delete=models.PROTECT, related_name='job_postings')
+    level = models.PositiveIntegerField(default=0, help_text="Classification level (0-100, where 0 is DEV)")
     alternation_criteria = models.JSONField(default=dict, blank=True)
     language_profile = models.CharField(max_length=20, choices=LANGUAGE_PROFILE_CHOICES)
     contact_email = models.EmailField(blank=True, null=True)
@@ -135,6 +135,18 @@ class JobPosting(models.Model):
     
     def __str__(self):
         return f"{self.job_title} - {self.department}"
+    
+    @property
+    def formatted_classification(self):
+        """Return the classification in the format 'EC-07' or 'EC-DEV'."""
+        if self.classification:
+            if self.level == 0:
+                return f"{self.classification.code}-DEV"
+            else:
+                # Pad the level with a leading zero if it's a single digit
+                padded_level = f"{self.level:02d}"
+                return f"{self.classification.code}-{padded_level}"
+        return None
     
     def save(self, *args, **kwargs):
         # If expiration_date is not set, default to 30 days from posting_date

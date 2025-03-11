@@ -29,7 +29,7 @@
                     <td data-column="job_title">{{ job_posting.job_title }}</td>
                     <td data-column="department">{{ job_posting.department.name }}</td>
                     <td data-column="location">{{ job_posting.location }}</td>
-                    <td data-column="classification">{{ job_posting.get_classification_display }}</td>
+                    <td data-column="classification">{{ job_posting.formatted_classification }}</td>
                     <td data-column="language_profile">{{ job_posting.get_language_profile_display }}</td>
                     <td data-column="posting_date">{{ job_posting.posting_date|date:"F j, Y" }}</td>
                     <td>
