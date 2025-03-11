@@ -14,6 +14,9 @@
                 <th class="sortable" data-column="classification">
                     Classification <span class="sort-icon"></span>
                 </th>
+                <th class="sortable" data-column="alternation_type">
+                    Alternation Type <span class="sort-icon"></span>
+                </th>
                 <th class="sortable" data-column="language_profile">
                     Language Profile <span class="sort-icon"></span>
                 </th>
@@ -30,6 +33,7 @@
                     <td data-column="department">{{ job_posting.department.name }}</td>
                     <td data-column="location">{{ job_posting.location }}</td>
                     <td data-column="classification">{{ job_posting.formatted_classification }}</td>
+                    <td data-column="alternation_type">{{ job_posting.get_alternation_type_display }}</td>
                     <td data-column="language_profile">{{ job_posting.get_language_profile_display }}</td>
                     <td data-column="posting_date">{{ job_posting.posting_date|date:"F j, Y" }}</td>
                     <td>

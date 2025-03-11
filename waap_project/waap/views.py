@@ -377,18 +377,20 @@ def job_posting_create(request):
             location = request.POST.get('location')
             classification_id = request.POST.get('classification')
             level = request.POST.get('level')
+            alternation_type = request.POST.get('alternation_type')
             language_profile = request.POST.get('language_profile')
             contact_email = request.POST.get('contact_email')
             expiration_date_str = request.POST.get('expiration_date')
             alternation_criteria_str = request.POST.get('alternation_criteria')
             
             # Validate required fields
-            if not (job_title and department_id and location and classification_id and level and language_profile):
+            if not (job_title and department_id and location and classification_id and level and alternation_type and language_profile):
                 return render(request, 'waap/job_posting_create.html', {
                     'error_message': 'Please fill in all required fields.',
                     'departments': departments,
                     'classifications': classifications,
                     'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
+                    'alternation_type_choices': JobPosting.ALTERNATION_TYPE_CHOICES,
                     'location_choices': location_choices,
                 })
             
@@ -402,6 +404,7 @@ def job_posting_create(request):
                     'departments': departments,
                     'classifications': classifications,
                     'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
+                    'alternation_type_choices': JobPosting.ALTERNATION_TYPE_CHOICES,
                     'location_choices': location_choices,
                 })
             
@@ -416,6 +419,7 @@ def job_posting_create(request):
                     'departments': departments,
                     'classifications': classifications,
                     'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
+                    'alternation_type_choices': JobPosting.ALTERNATION_TYPE_CHOICES,
                     'location_choices': location_choices,
                 })
             
@@ -432,6 +436,7 @@ def job_posting_create(request):
                         'departments': departments,
                         'classifications': classifications,
                         'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
+                        'alternation_type_choices': JobPosting.ALTERNATION_TYPE_CHOICES,
                         'location_choices': location_choices,
                     })
             
@@ -446,6 +451,7 @@ def job_posting_create(request):
                         'departments': departments,
                         'classifications': classifications,
                         'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
+                        'alternation_type_choices': JobPosting.ALTERNATION_TYPE_CHOICES,
                         'location_choices': location_choices,
                     })
             
@@ -456,6 +462,7 @@ def job_posting_create(request):
                 location=location,
                 classification=classification,
                 level=level,
+                alternation_type=alternation_type,
                 language_profile=language_profile,
                 contact_email=contact_email,
                 alternation_criteria=alternation_criteria,
@@ -477,6 +484,7 @@ def job_posting_create(request):
                 'departments': departments,
                 'classifications': classifications,
                 'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
+                'alternation_type_choices': JobPosting.ALTERNATION_TYPE_CHOICES,
                 'location_choices': location_choices,
             })
     
@@ -485,6 +493,7 @@ def job_posting_create(request):
         'departments': departments,
         'classifications': classifications,
         'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
+        'alternation_type_choices': JobPosting.ALTERNATION_TYPE_CHOICES,
         'location_choices': location_choices,
     })
 
@@ -652,6 +661,19 @@ class PublicJobPostingView(View):
         departments = Department.objects.all().order_by('name')
         classifications = Classification.objects.all().order_by('code')
         
+        # Get all unique classification-level combinations from active job postings
+        classification_levels = []
+        for posting in job_postings:
+            if posting.formatted_classification and posting.formatted_classification not in [cl['display'] for cl in classification_levels]:
+                classification_levels.append({
+                    'classification_id': posting.classification.id,
+                    'level': posting.level,
+                    'display': posting.formatted_classification
+                })
+        
+        # Sort by classification code and level
+        classification_levels.sort(key=lambda x: (x['display'].split('-')[0], int(x['display'].split('-')[1]) if x['display'].split('-')[1] != 'DEV' else 0))
+        
         # Canadian provinces and territories, plus National Capital Region and International
         locations = [
             'Alberta',
@@ -677,7 +699,9 @@ class PublicJobPostingView(View):
             'departments': departments,
             'locations': locations,
             'classifications': classifications,
+            'classification_levels': classification_levels,
             'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
+            'alternation_type_choices': JobPosting.ALTERNATION_TYPE_CHOICES,
             'view_mode': 'card',  # Default view mode
         })
     
@@ -687,6 +711,7 @@ class PublicJobPostingView(View):
         department_id = request.GET.get('department')
         location = request.GET.get('location')
         classification = request.GET.get('classification')
+        classification_level = request.GET.get('classification_level')
         language_profile = request.GET.get('language_profile')
         alternation_type = request.GET.get('alternation_type')
         date_posted = request.GET.get('date_posted')
@@ -705,8 +730,15 @@ class PublicJobPostingView(View):
         if location:
             queryset = queryset.filter(location=location)
         
-        if classification:
-            queryset = queryset.filter(classification=classification)
+        # Filter by classification-level combination
+        if classification_level:
+            # Parse the classification_level value (format: "classification_id:level")
+            try:
+                classification_id, level = classification_level.split(':')
+                level = int(level)
+                queryset = queryset.filter(classification_id=classification_id, level=level)
+            except (ValueError, TypeError):
+                pass
         
         if language_profile:
             # Handle both database values and display values
@@ -719,9 +751,7 @@ class PublicJobPostingView(View):
         
         # Filter by alternation type (seeking/offering)
         if alternation_type:
-            # This assumes alternation_criteria has a 'type' field
-            # Adjust as needed based on your actual data structure
-            queryset = queryset.filter(alternation_criteria__type=alternation_type)
+            queryset = queryset.filter(alternation_type=alternation_type)
         
         # Filter by date posted
         if date_posted:

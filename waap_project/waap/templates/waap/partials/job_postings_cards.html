@@ -7,6 +7,7 @@
                     <p><strong>Department:</strong> {{ job_posting.department.name }}</p>
                     <p><strong>Location:</strong> {{ job_posting.location }}</p>
                     <p><strong>Classification:</strong> {{ job_posting.formatted_classification }}</p>
+                    <p><strong>Alternation Type:</strong> {{ job_posting.get_alternation_type_display }}</p>
                     <p><strong>Language Profile:</strong> {{ job_posting.get_language_profile_display }}</p>
                     <p><strong>Posted:</strong> {{ job_posting.posting_date|date:"F j, Y" }}</p>
                 </div>

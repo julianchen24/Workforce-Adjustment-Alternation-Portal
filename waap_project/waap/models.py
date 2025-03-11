@@ -84,6 +84,12 @@ class JobPosting(models.Model):
         ('FRENCH_PREFERRED', 'French Preferred'),
     ]
     
+    # Alternation type choices
+    ALTERNATION_TYPE_CHOICES = [
+        ('SEEKING', 'Seeking - Affected Employee'),
+        ('OFFERING', 'Offering - Unaffected Employee'),
+    ]
+    
     # Moderation status choices
     MODERATION_STATUS_CHOICES = [
         ('APPROVED', 'Approved'),
@@ -97,6 +103,7 @@ class JobPosting(models.Model):
     location = models.CharField(max_length=100)
     classification = models.ForeignKey(Classification, on_delete=models.PROTECT, related_name='job_postings')
     level = models.PositiveIntegerField(default=0, help_text="Classification level (0-100, where 0 is DEV)")
+    alternation_type = models.CharField(max_length=20, choices=ALTERNATION_TYPE_CHOICES, default='SEEKING')
     alternation_criteria = models.JSONField(default=dict, blank=True)
     language_profile = models.CharField(max_length=20, choices=LANGUAGE_PROFILE_CHOICES)
     contact_email = models.EmailField(blank=True, null=True)

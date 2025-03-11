@@ -1,6 +1,6 @@
 {% extends 'waap/base.html' %}
 
-{% block title %}Browse Job Postings - WAAP{% endblock %}
+{% block title %}Browse - WAAP{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -189,7 +189,7 @@
 
 {% block content %}
 <div class="content-container">
-    <h2>Browse Job Postings</h2>
+    <h2>Browse</h2>
     
     <div class="filter-container">
         <h3>Filter Options</h3>
@@ -216,11 +216,11 @@
                 </div>
                 
                 <div class="filter-group">
-                    <label for="classification">Classification/Level</label>
-                    <select id="classification" name="classification">
-                        <option value="">All Classifications</option>
-                        {% for value, display in classification_choices %}
-                            <option value="{{ value }}">{{ display }}</option>
+                    <label for="classification_level">Classification/Level</label>
+                    <select id="classification_level" name="classification_level">
+                        <option value="">All Levels</option>
+                        {% for cl in classification_levels %}
+                            <option value="{{ cl.classification_id }}:{{ cl.level }}">{{ cl.display }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -231,8 +231,9 @@
                     <label for="alternation_type">Alternation Type</label>
                     <select id="alternation_type" name="alternation_type">
                         <option value="">All Types</option>
-                        <option value="seeking">Seeking</option>
-                        <option value="offering">Offering</option>
+                        {% for value, display in alternation_type_choices %}
+                            <option value="{{ value }}">{{ display }}</option>
+                        {% endfor %}
                     </select>
                 </div>
                 
