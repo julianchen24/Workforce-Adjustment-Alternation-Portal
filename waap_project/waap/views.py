@@ -349,6 +349,25 @@ def job_posting_create(request):
     departments = Department.objects.all()
     classifications = Classification.objects.all().order_by('code')
     
+    # Canadian provinces and territories, plus National Capital Region and International
+    location_choices = [
+        'Alberta',
+        'British Columbia',
+        'Manitoba',
+        'New Brunswick',
+        'Newfoundland and Labrador',
+        'Northwest Territories',
+        'Nova Scotia',
+        'Nunavut',
+        'Ontario',
+        'Prince Edward Island',
+        'Quebec',
+        'Saskatchewan',
+        'Yukon',
+        'National Capital Region',
+        'International'
+    ]
+    
     if request.method == 'POST':
         # Process the form submission
         try:
@@ -370,6 +389,7 @@ def job_posting_create(request):
                     'departments': departments,
                     'classifications': classifications,
                     'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
+                    'location_choices': location_choices,
                 })
             
             # Get the department and classification
@@ -382,6 +402,7 @@ def job_posting_create(request):
                     'departments': departments,
                     'classifications': classifications,
                     'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
+                    'location_choices': location_choices,
                 })
             
             # Validate level
@@ -395,6 +416,7 @@ def job_posting_create(request):
                     'departments': departments,
                     'classifications': classifications,
                     'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
+                    'location_choices': location_choices,
                 })
             
             # Parse expiration date if provided
@@ -410,6 +432,7 @@ def job_posting_create(request):
                         'departments': departments,
                         'classifications': classifications,
                         'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
+                        'location_choices': location_choices,
                     })
             
             # Parse alternation criteria if provided
@@ -423,6 +446,7 @@ def job_posting_create(request):
                         'departments': departments,
                         'classifications': classifications,
                         'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
+                        'location_choices': location_choices,
                     })
             
             # Create the job posting
@@ -453,6 +477,7 @@ def job_posting_create(request):
                 'departments': departments,
                 'classifications': classifications,
                 'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
+                'location_choices': location_choices,
             })
     
     # Render the form for GET requests
@@ -460,6 +485,7 @@ def job_posting_create(request):
         'departments': departments,
         'classifications': classifications,
         'language_profile_choices': JobPosting.LANGUAGE_PROFILE_CHOICES,
+        'location_choices': location_choices,
     })
 
 def send_deletion_email(request, job_posting, user):
@@ -625,9 +651,25 @@ class PublicJobPostingView(View):
         # Get filter options
         departments = Department.objects.all().order_by('name')
         classifications = Classification.objects.all().order_by('code')
-        locations = JobPosting.objects.filter(
-            expiration_date__gte=timezone.now()
-        ).values_list('location', flat=True).distinct().order_by('location')
+        
+        # Canadian provinces and territories, plus National Capital Region and International
+        locations = [
+            'Alberta',
+            'British Columbia',
+            'Manitoba',
+            'New Brunswick',
+            'Newfoundland and Labrador',
+            'Northwest Territories',
+            'Nova Scotia',
+            'Nunavut',
+            'Ontario',
+            'Prince Edward Island',
+            'Quebec',
+            'Saskatchewan',
+            'Yukon',
+            'National Capital Region',
+            'International'
+        ]
         
         # Render the template
         return render(request, 'waap/public_job_postings.html', {
