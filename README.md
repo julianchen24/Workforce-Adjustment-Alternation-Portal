@@ -13,7 +13,7 @@ A Django-based web application for managing workforce adjustments and alternatio
 
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/julianchen24/Workforce-Adjustment-Alternation-Portal.git
    cd waap_project
    ```
 
@@ -74,19 +74,3 @@ The application will be available at http://127.0.0.1:8000/
 python manage.py test
 ```
 
-## Project Structure
-
-- `waap_project/` - Main project directory
-  - `waap_project/` - Project settings and configuration
-  - `waap/` - Main application
-    - `models.py` - Database models
-    - `views.py` - View functions and classes
-    - `urls.py` - URL routing
-    - `admin.py` - Admin interface configuration
-    - `tests.py` - Test cases
-    - `templates/` - HTML templates
-
-## Features
-
-- User management
-- (Additional features to be added)
