@@ -2,6 +2,10 @@
 
 A Django-based web application for managing workforce adjustments and alternations.
 
+![unnamed](https://github.com/user-attachments/assets/3cfcfafe-c4f0-444a-afe3-64433e557593)
+![unnamed-1](https://github.com/user-attachments/assets/02f954d4-ba29-4431-bc7d-2c1167f96e93)
+
+
 ## Setup Instructions
 
 ### Prerequisites
