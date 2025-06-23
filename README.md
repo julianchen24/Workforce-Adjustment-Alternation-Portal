@@ -1,6 +1,6 @@
 # Workforce Adjustment Alternation Portal (WAAP)
-
-A Django-based web application for managing workforce adjustments and alternations.
+### A proof-of-concept web application developed using Django, designed to support workforce adjustment and alternation scenarios in the federal public service.
+### This portal was presented to various federal public service unions as a proposed solution for managing employee alternations during workforce adjustment processes.
 
 ![unnamed](https://github.com/user-attachments/assets/3cfcfafe-c4f0-444a-afe3-64433e557593)
 ![unnamed-1](https://github.com/user-attachments/assets/02f954d4-ba29-4431-bc7d-2c1167f96e93)
